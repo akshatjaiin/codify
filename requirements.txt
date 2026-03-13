@@ -1,0 +1,7 @@
+Django==5.0.14
+black==24.10.0
+jsbeautifier==1.15.1
+beautifulsoup4==4.12.3
+tree-sitter==0.25.2
+tree-sitter-language-pack==0.13.0
+requests==2.32.3
