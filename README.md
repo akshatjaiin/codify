@@ -106,7 +106,13 @@ pip install -r requirements.txt
 
 ### 2) Configure environment
 
-Create `.env` in project root:
+Copy `.env.example` to `.env` and update values:
+
+```bash
+copy .env.example .env
+```
+
+Then set your API key:
 
 ```env
 INCEPTION_API_KEY=your_key_here

@@ -9,9 +9,11 @@ from pathlib import Path
 
 from django.http import HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import render
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
-from .ai_client import diagnose_with_inception, get_inception_api_key
-from .models import DiagnosticSnapshot, LearnerAction
+from .ai_client import diagnose_with_inception, generate_mermaid_flowchart, get_inception_api_key
+from .models import DiagnosticSnapshot, LearnerAction, UserProfile, KnowledgeEntry, CreditTransaction, Note
 
 try:
     import jsbeautifier
@@ -24,17 +26,176 @@ except ImportError:
     BeautifulSoup = None
 
 try:
-    from tree_sitter_languages import get_parser
+    from tree_sitter import Parser as TreeSitterParser
 except ImportError:
+    TreeSitterParser = None
+
+_tsl_get_parser = None
+_tsl_get_language = None
+_tslp_get_parser = None
+_tslp_get_language = None
+
+try:
+    from tree_sitter_languages import get_parser as _tsl_get_parser
+    from tree_sitter_languages import get_language as _tsl_get_language
+except ImportError:
+    pass
+
+try:
+    _ts_pack = importlib.import_module("tree_sitter_language_pack")
+    _tslp_get_parser = getattr(_ts_pack, "get_parser", None)
+    _tslp_get_language = getattr(_ts_pack, "get_language", None)
+except ImportError:
+    pass
+
+
+# --- YouTube Recommendation Database ---
+YOUTUBE_RECOMMENDATIONS = {
+    "complexity-optimization": [
+        {"title": "Big O Notation — Full Course", "url": "https://www.youtube.com/watch?v=Mo4vesaut8g", "channel": "freeCodeCamp"},
+        {"title": "Time Complexity Analysis", "url": "https://www.youtube.com/watch?v=9TlHvipP5yA", "channel": "Abdul Bari"},
+        {"title": "Hash Tables Explained", "url": "https://www.youtube.com/watch?v=KyUTuwz_b7Q", "channel": "CS Dojo"},
+    ],
+    "branching-decomposition": [
+        {"title": "Clean Code — Functions", "url": "https://www.youtube.com/watch?v=7EmboKQH8lM", "channel": "Uncle Bob"},
+        {"title": "Guard Clauses & Early Returns", "url": "https://www.youtube.com/watch?v=EumXak7TyQ0", "channel": "Web Dev Simplified"},
+        {"title": "Refactoring If-Else Chains", "url": "https://www.youtube.com/watch?v=lQ_rGCL17EE", "channel": "CodeAesthetic"},
+    ],
+    "modularization": [
+        {"title": "Single Responsibility Principle", "url": "https://www.youtube.com/watch?v=UQqY3_6Epbg", "channel": "Fireship"},
+        {"title": "Functions & Decomposition", "url": "https://www.youtube.com/watch?v=yatgY4NpZXE", "channel": "CS50"},
+        {"title": "Code Smells & Refactoring", "url": "https://www.youtube.com/watch?v=D4auWwMsEnY", "channel": "CodeAesthetic"},
+    ],
+    "general-structure": [
+        {"title": "Data Structures for Beginners", "url": "https://www.youtube.com/watch?v=RBSGKlAvoiM", "channel": "freeCodeCamp"},
+        {"title": "How to Write Clean Code", "url": "https://www.youtube.com/watch?v=UjhX2sVf0eg", "channel": "Traversy Media"},
+        {"title": "Python Best Practices", "url": "https://www.youtube.com/watch?v=C-gEQdGVXbk", "channel": "Tech With Tim"},
+    ],
+}
+
+
+def _get_or_create_profile(request):
+    if not request.session.session_key:
+        request.session.create()
+    session_key = request.session.session_key
+    profile, _ = UserProfile.objects.get_or_create(session_key=session_key)
+    return profile
+
+
+def _update_knowledge(profile, concept_tag, confidence_score):
+    if not concept_tag or concept_tag == "unknown":
+        return
+    if confidence_score >= 80:
+        level = "strong"
+    elif confidence_score >= 50:
+        level = "developing"
+    else:
+        level = "beginner"
+
+    entry, created = KnowledgeEntry.objects.get_or_create(
+        user=profile,
+        concept_tag=concept_tag,
+        defaults={"proficiency_level": level, "practice_count": 1},
+    )
+    if not created:
+        entry.practice_count += 1
+        entry.proficiency_level = level
+        entry.last_practiced = timezone.now()
+        entry.save()
+
+
+def _grant_credits(profile, amount, reason):
+    profile.credits += amount
+    profile.save()
+    CreditTransaction.objects.create(user=profile, amount=amount, reason=reason)
+
+
+def _use_credits(profile, amount, reason):
+    if profile.credits < amount:
+        return False
+    profile.credits -= amount
+    profile.save()
+    CreditTransaction.objects.create(user=profile, amount=-amount, reason=reason)
+    return True
+
+
+# --- Tree-sitter helpers (unchanged) ---
+
+def _tree_sitter_backend_available():
+    has_direct_parser = callable(_tsl_get_parser) or callable(_tslp_get_parser)
+    has_language_and_parser = TreeSitterParser is not None and (
+        callable(_tsl_get_language) or callable(_tslp_get_language)
+    )
+    return has_direct_parser or has_language_and_parser
+
+
+def _get_tree_sitter_parser(language_name):
+    last_error = None
+
+    for parser_builder in (_tsl_get_parser, _tslp_get_parser):
+        if not callable(parser_builder):
+            continue
+        try:
+            return parser_builder(language_name)
+        except Exception as error:
+            last_error = error
+
+    if TreeSitterParser is None:
+        if last_error:
+            raise RuntimeError(str(last_error))
+        raise RuntimeError("tree_sitter.Parser is unavailable.")
+
+    language_obj = None
+    for language_builder in (_tsl_get_language, _tslp_get_language):
+        if not callable(language_builder):
+            continue
+        try:
+            language_obj = language_builder(language_name)
+            if language_obj is not None:
+                break
+        except Exception as error:
+            last_error = error
+
+    if language_obj is None:
+        if last_error:
+            raise RuntimeError(str(last_error))
+        raise RuntimeError(f"No tree-sitter language provider for '{language_name}'.")
+
     try:
-        _ts_pack = importlib.import_module("tree_sitter_language_pack")
-        get_parser = getattr(_ts_pack, "get_parser", None)
-    except ImportError:
-        get_parser = None
+        return TreeSitterParser(language_obj)
+    except TypeError:
+        parser = TreeSitterParser()
+        if hasattr(parser, "set_language"):
+            parser.set_language(language_obj)
+        else:
+            parser.language = language_obj
+        return parser
 
 
+# --- Page Views ---
+
+@ensure_csrf_cookie
+def dashboard_page(request):
+    _get_or_create_profile(request)
+    return render(request, "dashboard.html")
+
+
+@ensure_csrf_cookie
 def editor_page(request):
+    _get_or_create_profile(request)
     return render(request, "editor.html")
+
+
+@ensure_csrf_cookie
+def progress_page(request):
+    _get_or_create_profile(request)
+    return render(request, "progress.html")
+
+
+@ensure_csrf_cookie
+def knowledge_page(request):
+    _get_or_create_profile(request)
+    return render(request, "knowledge.html")
 
 
 def analysis_page(request):
@@ -54,6 +215,8 @@ def analyze_api_dummy(request):
         }
     )
 
+
+# --- Process helpers (unchanged) ---
 
 def _run_process(command, cwd=None, stdin_text="", timeout=5):
     result = subprocess.run(
@@ -435,11 +598,14 @@ def _build_progress_payload(language="", limit=20):
     }
 
 
+# --- API Endpoints ---
+
+@csrf_exempt
 def ast_tree_local(request):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
-    if get_parser is None:
+    if not _tree_sitter_backend_available():
         return JsonResponse(
             {
                 "ok": False,
@@ -473,7 +639,7 @@ def ast_tree_local(request):
         )
 
     try:
-        parser = get_parser(ts_language)
+        parser = _get_tree_sitter_parser(ts_language)
         code_bytes = code.encode("utf-8")
         tree = parser.parse(code_bytes)
         root = tree.root_node
@@ -496,6 +662,11 @@ def ast_tree_local(request):
         concept_signals = _collect_concept_signals(root)
         snapshot = _save_snapshot(filename, language, code, concept_signals)
         progress = _build_progress_payload(language=language, limit=20)
+
+        # Update knowledge tracking
+        profile = _get_or_create_profile(request)
+        _update_knowledge(profile, concept_signals.get("concept_tag"), concept_signals.get("confidence_score", 0))
+        _grant_credits(profile, 2, "AST analysis completed")
 
         return JsonResponse(
             {
@@ -594,6 +765,7 @@ def _compile_and_run_java(code, stdin_text, timeout):
         }
 
 
+@csrf_exempt
 def run_code_local(request):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
@@ -663,6 +835,7 @@ def run_code_local(request):
         )
 
 
+@csrf_exempt
 def format_code_local(request):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
@@ -872,6 +1045,7 @@ def progress_timeline_local(request):
     return JsonResponse({"ok": True, **_build_progress_payload(language=language, limit=limit)})
 
 
+@csrf_exempt
 def learner_action_local(request):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
@@ -901,6 +1075,7 @@ def learner_action_local(request):
     return JsonResponse({"ok": True, "action_id": action.id})
 
 
+@csrf_exempt
 def ai_diagnose_local(request):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
@@ -918,6 +1093,13 @@ def ai_diagnose_local(request):
     if not code.strip():
         return JsonResponse({"ok": False, "error": "Code is empty."}, status=400)
 
+    # Check credits
+    profile = _get_or_create_profile(request)
+    if profile.credits < 5:
+        return JsonResponse({"ok": False, "error": f"Not enough credits. You have {profile.credits}, need 5."}, status=400)
+
+    _use_credits(profile, 5, "AI diagnosis")
+
     ai_result = diagnose_with_inception(
         code=code,
         language=language,
@@ -926,6 +1108,8 @@ def ai_diagnose_local(request):
     )
 
     if not ai_result.get("ok"):
+        # Refund credits on AI failure
+        _grant_credits(profile, 5, "AI diagnosis refund (service error)")
         return JsonResponse(ai_result, status=400)
 
     diagnosis = ai_result.get("diagnosis", {})
@@ -965,6 +1149,10 @@ def ai_diagnose_local(request):
         metadata={"source": "inception", "confidence_adjustment": confidence_adjustment},
     )
 
+    # Update knowledge
+    _update_knowledge(profile, merged_signals.get("concept_tag"), ai_confidence)
+    _grant_credits(profile, 3, "AI analysis completed bonus")
+
     return JsonResponse(
         {
             "ok": True,
@@ -972,6 +1160,7 @@ def ai_diagnose_local(request):
             "concept_signals": merged_signals,
             "snapshot_id": snapshot.id,
             "progress": _build_progress_payload(language=language, limit=20),
+            "credits_remaining": profile.credits,
         }
     )
 
@@ -992,8 +1181,477 @@ def formatter_status_local(request):
                 "clang_format": {"available": bool(clang_path), "path": clang_path or ""},
                 "google_java_format": {"available": bool(google_java_cmd), "command": google_java_cmd or []},
                 "jsbeautifier": {"available": jsbeautifier is not None},
-                "tree_sitter": {"available": get_parser is not None},
+                "tree_sitter": {"available": _tree_sitter_backend_available()},
                 "ai_key": {"available": bool(get_inception_api_key())},
             },
         }
     )
+
+
+# --- New API endpoints ---
+
+def dashboard_stats_api(request):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    profile = _get_or_create_profile(request)
+    total_analyses = DiagnosticSnapshot.objects.count()
+    progress = _build_progress_payload(limit=50)
+
+    knowledge_entries = list(
+        KnowledgeEntry.objects.filter(user=profile).values(
+            "concept_tag", "proficiency_level", "practice_count", "last_practiced"
+        )
+    )
+    for entry in knowledge_entries:
+        if entry.get("last_practiced"):
+            entry["last_practiced"] = entry["last_practiced"].isoformat()
+
+    recent = list(
+        DiagnosticSnapshot.objects.order_by("-created_at")[:5].values(
+            "id", "filename", "language", "confidence_score", "confidence_label",
+            "concept_tag", "issue", "created_at"
+        )
+    )
+    for item in recent:
+        if item.get("created_at"):
+            item["created_at"] = item["created_at"].isoformat()
+
+    return JsonResponse({
+        "ok": True,
+        "credits": profile.credits,
+        "total_analyses": total_analyses,
+        "average_confidence": progress.get("average_confidence", 0),
+        "concept_counts": progress.get("concept_counts", {}),
+        "knowledge": knowledge_entries,
+        "recent_activity": recent,
+    })
+
+
+def knowledge_api(request):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    profile = _get_or_create_profile(request)
+    entries = list(
+        KnowledgeEntry.objects.filter(user=profile).order_by("-last_practiced").values(
+            "concept_tag", "proficiency_level", "practice_count", "first_seen", "last_practiced"
+        )
+    )
+    for entry in entries:
+        if entry.get("first_seen"):
+            entry["first_seen"] = entry["first_seen"].isoformat()
+        if entry.get("last_practiced"):
+            entry["last_practiced"] = entry["last_practiced"].isoformat()
+
+    return JsonResponse({"ok": True, "knowledge": entries})
+
+
+def credits_balance_api(request):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    profile = _get_or_create_profile(request)
+    transactions = list(
+        CreditTransaction.objects.filter(user=profile).order_by("-created_at")[:20].values(
+            "amount", "reason", "created_at"
+        )
+    )
+    for txn in transactions:
+        if txn.get("created_at"):
+            txn["created_at"] = txn["created_at"].isoformat()
+
+    return JsonResponse({
+        "ok": True,
+        "credits": profile.credits,
+        "transactions": transactions,
+    })
+
+
+def youtube_recommend_api(request):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    profile = _get_or_create_profile(request)
+    weak_concepts = list(
+        KnowledgeEntry.objects.filter(
+            user=profile,
+            proficiency_level__in=["beginner", "developing"]
+        ).order_by("proficiency_level", "-practice_count").values_list("concept_tag", flat=True)[:5]
+    )
+
+    if not weak_concepts:
+        weak_concepts = ["general-structure"]
+
+    recommendations = []
+    for concept in weak_concepts:
+        videos = YOUTUBE_RECOMMENDATIONS.get(concept, YOUTUBE_RECOMMENDATIONS.get("general-structure", []))
+        for video in videos:
+            recommendations.append({**video, "concept": concept})
+
+    return JsonResponse({"ok": True, "recommendations": recommendations, "weak_concepts": weak_concepts})
+
+@csrf_exempt
+def ast_flowchart_api(request):
+    """Generate a Mermaid flowchart from code using AI."""
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON payload."}, status=400)
+    code = str(payload.get("code", ""))
+    language = str(payload.get("language", "")).strip().lower()
+    concept_signals = payload.get("concept_signals", {})
+    if not code.strip():
+        return JsonResponse({"ok": False, "error": "Code is empty."}, status=400)
+    profile = _get_or_create_profile(request)
+    if profile.credits < 3:
+        return JsonResponse(
+            {"ok": False, "error": f"Not enough credits. You have {profile.credits}, need 3."},
+            status=400,
+        )
+    _use_credits(profile, 3, "Flowchart generation")
+    result = generate_mermaid_flowchart(
+        code=code,
+        language=language,
+        concept_signals=concept_signals if isinstance(concept_signals, dict) else {},
+    )
+    if not result.get("ok"):
+        _grant_credits(profile, 3, "Flowchart generation refund (AI error)")
+        return JsonResponse(result, status=400)
+    return JsonResponse({
+        "ok": True,
+        "mermaid_code": result["mermaid_code"],
+        "credits_remaining": profile.credits,
+    })
+
+
+def _read_youtube_api_key():
+    """Read YOUTUBE_API_KEY from env or .env file."""
+    env_key = os.environ.get("YOUTUBE_API_KEY", "").strip()
+    if env_key:
+        return env_key
+    dotenv_path = Path(__file__).resolve().parent.parent / ".env"
+    if not dotenv_path.exists():
+        return ""
+    try:
+        for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("YOUTUBE_API_KEY="):
+                value = line.split("=", 1)[1].strip()
+                if value.startswith(('"', "'")) and value.endswith(('"', "'")) and len(value) >= 2:
+                    value = value[1:-1]
+                return value.strip()
+    except OSError:
+        pass
+    return ""
+
+
+def youtube_search_api(request):
+    """Search YouTube for educational videos. Falls back to hardcoded if no API key."""
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    query = request.GET.get("q", "").strip()
+    if not query:
+        return JsonResponse({"ok": False, "error": "Search query is required."}, status=400)
+    api_key = _read_youtube_api_key()
+    if not api_key:
+        results = []
+        for concept, videos in YOUTUBE_RECOMMENDATIONS.items():
+            for video in videos:
+                if query.lower() in video["title"].lower() or query.lower() in concept:
+                    results.append({**video, "concept": concept})
+        if not results:
+            for concept, videos in YOUTUBE_RECOMMENDATIONS.items():
+                for video in videos:
+                    results.append({**video, "concept": concept})
+        return JsonResponse({"ok": True, "results": results[:9], "source": "hardcoded"})
+    import requests as http_requests
+    try:
+        params = {
+            "part": "snippet",
+            "q": f"{query} programming tutorial",
+            "type": "video",
+            "maxResults": 6,
+            "videoCategoryId": "27",
+            "key": api_key,
+        }
+        resp = http_requests.get(
+            "https://www.googleapis.com/youtube/v3/search", params=params, timeout=10
+        )
+        data = resp.json()
+        if resp.status_code >= 400:
+            return JsonResponse(
+                {"ok": False, "error": data.get("error", {}).get("message", "YouTube API error")},
+                status=400,
+            )
+        results = []
+        for item in data.get("items", []):
+            snippet = item.get("snippet", {})
+            video_id = item.get("id", {}).get("videoId", "")
+            results.append({
+                "title": snippet.get("title", ""),
+                "url": f"https://www.youtube.com/watch?v={video_id}",
+                "channel": snippet.get("channelTitle", ""),
+                "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
+                "description": snippet.get("description", "")[:150],
+            })
+        return JsonResponse({"ok": True, "results": results, "source": "youtube_api"})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": f"YouTube search failed: {e}"}, status=500)
+
+
+@csrf_exempt
+def notes_api(request):
+    """CRUD for user notes."""
+    profile = _get_or_create_profile(request)
+    if request.method == "GET":
+        notes = Note.objects.filter(user=profile).values(
+            "id", "title", "content", "tags", "filename", "created_at", "updated_at"
+        )[:50]
+        return JsonResponse({"ok": True, "notes": list(notes)})
+    if request.method == "POST":
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"ok": False, "error": "Invalid JSON."}, status=400)
+        note_id = payload.get("id")
+        title = str(payload.get("title", "Untitled Note")).strip()[:200]
+        content = str(payload.get("content", ""))
+        tags = str(payload.get("tags", "")).strip()[:300]
+        filename = str(payload.get("filename", "")).strip()[:255]
+        snapshot_id = payload.get("snapshot_id")
+        snapshot = None
+        if snapshot_id:
+            try:
+                snapshot = DiagnosticSnapshot.objects.get(id=snapshot_id)
+            except DiagnosticSnapshot.DoesNotExist:
+                pass
+        if note_id:
+            try:
+                note = Note.objects.get(id=note_id, user=profile)
+                note.title = title
+                note.content = content
+                note.tags = tags
+                note.filename = filename
+                if snapshot:
+                    note.snapshot = snapshot
+                note.save()
+            except Note.DoesNotExist:
+                return JsonResponse({"ok": False, "error": "Note not found."}, status=404)
+        else:
+            note = Note.objects.create(
+                user=profile, title=title, content=content,
+                tags=tags, filename=filename, snapshot=snapshot,
+            )
+        return JsonResponse({
+            "ok": True,
+            "note": {
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "tags": note.tags,
+                "filename": note.filename,
+                "created_at": note.created_at.isoformat(),
+                "updated_at": note.updated_at.isoformat(),
+            },
+        })
+    if request.method == "DELETE":
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"ok": False, "error": "Invalid JSON."}, status=400)
+        note_id = payload.get("id")
+        if not note_id:
+            return JsonResponse({"ok": False, "error": "Note ID required."}, status=400)
+        deleted, _ = Note.objects.filter(id=note_id, user=profile).delete()
+        if deleted == 0:
+            return JsonResponse({"ok": False, "error": "Note not found."}, status=404)
+        return JsonResponse({"ok": True, "deleted": note_id})
+    return HttpResponseNotAllowed(["GET", "POST", "DELETE"])
+
+
+@csrf_exempt
+def ast_flowchart_api(request):
+    """Generate a Mermaid flowchart from code using AI."""
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON payload."}, status=400)
+    code = str(payload.get("code", ""))
+    language = str(payload.get("language", "")).strip().lower()
+    concept_signals = payload.get("concept_signals", {})
+    if not code.strip():
+        return JsonResponse({"ok": False, "error": "Code is empty."}, status=400)
+    profile = _get_or_create_profile(request)
+    if profile.credits < 3:
+        return JsonResponse(
+            {"ok": False, "error": f"Not enough credits. You have {profile.credits}, need 3."},
+            status=400,
+        )
+    _use_credits(profile, 3, "Flowchart generation")
+    result = generate_mermaid_flowchart(
+        code=code,
+        language=language,
+        concept_signals=concept_signals if isinstance(concept_signals, dict) else {},
+    )
+    if not result.get("ok"):
+        _grant_credits(profile, 3, "Flowchart generation refund (AI error)")
+        return JsonResponse(result, status=400)
+    return JsonResponse({
+        "ok": True,
+        "mermaid_code": result["mermaid_code"],
+        "credits_remaining": profile.credits,
+    })
+
+
+def _read_youtube_api_key():
+    """Read YOUTUBE_API_KEY from env or .env file."""
+    env_key = os.environ.get("YOUTUBE_API_KEY", "").strip()
+    if env_key:
+        return env_key
+    dotenv_path = Path(__file__).resolve().parent.parent / ".env"
+    if not dotenv_path.exists():
+        return ""
+    try:
+        for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("YOUTUBE_API_KEY="):
+                value = line.split("=", 1)[1].strip()
+                if value.startswith(('"', "'")) and value.endswith(('"', "'")) and len(value) >= 2:
+                    value = value[1:-1]
+                return value.strip()
+    except OSError:
+        pass
+    return ""
+
+
+def youtube_search_api(request):
+    """Search YouTube for educational videos. Falls back to hardcoded if no API key."""
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    query = request.GET.get("q", "").strip()
+    if not query:
+        return JsonResponse({"ok": False, "error": "Search query is required."}, status=400)
+    api_key = _read_youtube_api_key()
+    if not api_key:
+        results = []
+        for concept, videos in YOUTUBE_RECOMMENDATIONS.items():
+            for video in videos:
+                if query.lower() in video["title"].lower() or query.lower() in concept:
+                    results.append({**video, "concept": concept})
+        if not results:
+            for concept, videos in YOUTUBE_RECOMMENDATIONS.items():
+                for video in videos:
+                    results.append({**video, "concept": concept})
+        return JsonResponse({"ok": True, "results": results[:9], "source": "hardcoded"})
+    import requests as http_requests
+    try:
+        params = {
+            "part": "snippet",
+            "q": f"{query} programming tutorial",
+            "type": "video",
+            "maxResults": 6,
+            "videoCategoryId": "27",
+            "key": api_key,
+        }
+        resp = http_requests.get(
+            "https://www.googleapis.com/youtube/v3/search", params=params, timeout=10
+        )
+        data = resp.json()
+        if resp.status_code >= 400:
+            return JsonResponse(
+                {"ok": False, "error": data.get("error", {}).get("message", "YouTube API error")},
+                status=400,
+            )
+        results = []
+        for item in data.get("items", []):
+            snippet = item.get("snippet", {})
+            video_id = item.get("id", {}).get("videoId", "")
+            results.append({
+                "title": snippet.get("title", ""),
+                "url": f"https://www.youtube.com/watch?v={video_id}",
+                "channel": snippet.get("channelTitle", ""),
+                "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
+                "description": snippet.get("description", "")[:150],
+            })
+        return JsonResponse({"ok": True, "results": results, "source": "youtube_api"})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": f"YouTube search failed: {e}"}, status=500)
+
+
+@csrf_exempt
+def notes_api(request):
+    """CRUD for user notes."""
+    profile = _get_or_create_profile(request)
+    if request.method == "GET":
+        notes = Note.objects.filter(user=profile).values(
+            "id", "title", "content", "tags", "filename", "created_at", "updated_at"
+        )[:50]
+        return JsonResponse({"ok": True, "notes": list(notes)})
+    if request.method == "POST":
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"ok": False, "error": "Invalid JSON."}, status=400)
+        note_id = payload.get("id")
+        title = str(payload.get("title", "Untitled Note")).strip()[:200]
+        content = str(payload.get("content", ""))
+        tags = str(payload.get("tags", "")).strip()[:300]
+        filename = str(payload.get("filename", "")).strip()[:255]
+        snapshot_id = payload.get("snapshot_id")
+        snapshot = None
+        if snapshot_id:
+            try:
+                snapshot = DiagnosticSnapshot.objects.get(id=snapshot_id)
+            except DiagnosticSnapshot.DoesNotExist:
+                pass
+        if note_id:
+            try:
+                note = Note.objects.get(id=note_id, user=profile)
+                note.title = title
+                note.content = content
+                note.tags = tags
+                note.filename = filename
+                if snapshot:
+                    note.snapshot = snapshot
+                note.save()
+            except Note.DoesNotExist:
+                return JsonResponse({"ok": False, "error": "Note not found."}, status=404)
+        else:
+            note = Note.objects.create(
+                user=profile, title=title, content=content,
+                tags=tags, filename=filename, snapshot=snapshot,
+            )
+        return JsonResponse({
+            "ok": True,
+            "note": {
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "tags": note.tags,
+                "filename": note.filename,
+                "created_at": note.created_at.isoformat(),
+                "updated_at": note.updated_at.isoformat(),
+            },
+        })
+    if request.method == "DELETE":
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"ok": False, "error": "Invalid JSON."}, status=400)
+        note_id = payload.get("id")
+        if not note_id:
+            return JsonResponse({"ok": False, "error": "Note ID required."}, status=400)
+        deleted, _ = Note.objects.filter(id=note_id, user=profile).delete()
+        if deleted == 0:
+            return JsonResponse({"ok": False, "error": "Note not found."}, status=404)
+        return JsonResponse({"ok": True, "deleted": note_id})
+    return HttpResponseNotAllowed(["GET", "POST", "DELETE"])

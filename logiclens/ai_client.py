@@ -150,3 +150,101 @@ def diagnose_with_inception(
         }
 
     return {"ok": True, "diagnosis": parsed}
+
+
+MERMAID_RESPONSE_SCHEMA = {
+    "name": "MermaidFlowchart",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "mermaid_code": {"type": "string"},
+        },
+        "required": ["mermaid_code"],
+    },
+}
+
+
+def generate_mermaid_flowchart(
+    *,
+    code: str,
+    language: str,
+    concept_signals: dict[str, Any] | None = None,
+    model: str = "mercury-2",
+    timeout_seconds: int = 40,
+) -> dict[str, Any]:
+    """Ask Inception AI to produce a Mermaid flowchart from the user's code."""
+    api_key = get_inception_api_key()
+    if not api_key:
+        return {"ok": False, "error": "INCEPTION_API_KEY is not set in environment."}
+
+    concept_signals = concept_signals or {}
+
+    prompt = json.dumps({
+        "task": (
+            "Analyze this code and generate a Mermaid flowchart diagram showing its control flow. "
+            "Include function definitions, loops, conditionals, returns, and key operations as nodes. "
+            "Use `graph TD` (top-down) format. Make the diagram clear and educational. "
+            "Only return the raw Mermaid code string—no markdown fences, no explanation."
+        ),
+        "language": language,
+        "concept_signals_summary": {
+            "loop_count": concept_signals.get("loop_count", 0),
+            "conditional_count": concept_signals.get("conditional_count", 0),
+            "function_like_count": concept_signals.get("function_like_count", 0),
+            "max_loop_nesting": concept_signals.get("max_loop_nesting", 0),
+        },
+        "code": code,
+    })
+
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a code visualization expert. You convert source code into clear, "
+                    "educational Mermaid flowchart diagrams. Use descriptive node labels. "
+                    "Use different shapes: stadiums for start/end, rectangles for operations, "
+                    "diamonds for decisions, parallelograms for I/O."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": MERMAID_RESPONSE_SCHEMA,
+        },
+        "stream": False,
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+
+    try:
+        response = requests.post(INCEPTION_URL, headers=headers, json=payload, timeout=timeout_seconds)
+        body = response.json()
+    except requests.RequestException as error:
+        return {"ok": False, "error": f"AI request failed: {error}"}
+    except ValueError:
+        return {"ok": False, "error": "AI service returned non-JSON response."}
+
+    if response.status_code >= 400:
+        return {
+            "ok": False,
+            "error": body.get("error", {}).get("message") if isinstance(body, dict) else "AI service error.",
+        }
+
+    try:
+        content = body["choices"][0]["message"]["content"]
+        parsed = json.loads(content) if isinstance(content, str) else content
+        mermaid_code = parsed.get("mermaid_code", "")
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        return {"ok": False, "error": "Could not parse AI flowchart payload."}
+
+    if not mermaid_code.strip():
+        return {"ok": False, "error": "AI returned empty flowchart."}
+
+    return {"ok": True, "mermaid_code": mermaid_code}

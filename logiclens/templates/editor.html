@@ -1,416 +1,707 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
+{% block title %}Editor{% endblock %}
+{% block nav_editor %}active{% endblock %}
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LogicLens Editor</title>
-    <style>
-        * {
-            box-sizing: border-box;
+{% block extra_css %}
+<style>
+    .editor-layout {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        gap: 0;
+    }
+
+    /* === Toolbar === */
+    .editor-toolbar {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 4px;
+        align-items: center;
+        padding: 6px 10px;
+        background: rgba(255,255,255,0.02);
+        border-bottom: 1px solid var(--border-subtle);
+        overflow-x: auto;
+    }
+
+    .toolbar-group {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .toolbar-sep {
+        width: 1px;
+        height: 20px;
+        background: var(--border-subtle);
+        margin: 0 2px;
+        flex-shrink: 0;
+    }
+
+    .toolbar-input {
+        background: rgba(255,255,255,0.04);
+        color: var(--text-primary);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        padding: 5px 8px;
+        font-size: 12px;
+        font-family: 'Inter', sans-serif;
+        width: 110px;
+        transition: border-color 0.2s;
+    }
+
+    .toolbar-input:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+
+    .toolbar-select {
+        background: rgba(255,255,255,0.04);
+        color: var(--text-primary);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        padding: 5px 8px;
+        font-size: 12px;
+        font-family: 'Inter', sans-serif;
+        cursor: pointer;
+    }
+
+    .toolbar-select option {
+        background: var(--bg-base);
+        color: var(--text-primary);
+    }
+
+    .toolbar-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        font-family: 'Inter', sans-serif;
+        cursor: pointer;
+        border: 1px solid var(--border-subtle);
+        background: rgba(255,255,255,0.04);
+        color: var(--text-secondary);
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .toolbar-btn:hover {
+        background: rgba(255,255,255,0.08);
+        color: var(--text-primary);
+        border-color: var(--border-medium);
+    }
+
+    .toolbar-btn.primary {
+        background: var(--accent-blue);
+        color: white;
+        border: none;
+        box-shadow: 0 1px 4px rgba(91,143,217,0.2);
+    }
+
+    .toolbar-btn.primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(91,143,217,0.25);
+    }
+
+    .toolbar-btn.analyze {
+        background: var(--accent-purple);
+        color: white;
+        border: none;
+        box-shadow: 0 1px 4px rgba(155,123,212,0.2);
+    }
+
+    .toolbar-btn.analyze:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(155,123,212,0.25);
+    }
+
+    .toolbar-btn.ai-btn {
+        background: var(--accent-blue);
+        color: white;
+        border: none;
+    }
+
+    .toolbar-btn .credit-badge {
+        font-size: 10px;
+        background: rgba(255,255,255,0.2);
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+
+    .toolbar-upload {
+        cursor: pointer;
+    }
+
+    .toolbar-upload input { display: none; }
+
+    .toolbar-status {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--accent-blue);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent-green);
+    }
+
+    /* === Editor + Panel === */
+    .editor-main {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .editor-main.with-panel {
+        grid-template-columns: 1fr 320px;
+    }
+
+    .editor-pane {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border-right: 1px solid var(--border-subtle);
+    }
+
+    .editor-pane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: rgba(255,255,255,0.01);
+    }
+
+    .panel-toggle-btn {
+        border: none;
+        background: rgba(255,255,255,0.06);
+        color: var(--text-secondary);
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .panel-toggle-btn:hover {
+        background: rgba(255,255,255,0.12);
+        color: var(--text-primary);
+    }
+
+    #editor {
+        width: 100%;
+        height: 100%;
+    }
+
+    .diagnosis-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .diagnosis-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .diag-card {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        padding: 10px;
+        transition: all 0.2s;
+    }
+
+    .diag-card:hover {
+        border-color: var(--border-medium);
+        background: rgba(255,255,255,0.04);
+    }
+
+    .diag-card h4 {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-tertiary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .diag-card p {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+    }
+
+    .diag-card.highlight {
+        border-color: rgba(59,130,246,0.2);
+        background: rgba(59,130,246,0.04);
+    }
+
+    .confidence-ring {
+        width: 64px;
+        height: 64px;
+        position: relative;
+    }
+
+    .confidence-ring svg {
+        width: 64px;
+        height: 64px;
+        transform: rotate(-90deg);
+    }
+
+    .confidence-ring .ring-bg {
+        fill: none;
+        stroke: rgba(255,255,255,0.06);
+        stroke-width: 6;
+    }
+
+    .confidence-ring .ring-fill {
+        fill: none;
+        stroke-width: 6;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 1s ease;
+    }
+
+    .ring-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    .confidence-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .confidence-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .confidence-label-text {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .confidence-sublabel {
+        font-size: 12px;
+        color: var(--text-tertiary);
+    }
+
+    /* === Bottom Tabs === */
+    .bottom-section {
+        height: 200px;
+        min-height: 120px;
+        border-top: 1px solid var(--border-subtle);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tab-bar {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--border-subtle);
+        background: rgba(255,255,255,0.015);
+        overflow-x: auto;
+    }
+
+    .tab-btn {
+        padding: 10px 18px;
+        font-size: 12px;
+        font-weight: 600;
+        font-family: 'Inter', sans-serif;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        border: none;
+        background: none;
+        white-space: nowrap;
+        position: relative;
+        transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+        color: var(--text-secondary);
+        background: rgba(255,255,255,0.02);
+    }
+
+    .tab-btn.active {
+        color: var(--accent-blue);
+    }
+
+    .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--gradient-primary);
+    }
+
+    .tab-panel {
+        flex: 1;
+        overflow: auto;
+        padding: 14px 20px;
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    .tab-panel pre {
+        margin: 0;
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .runtime-grid {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 14px;
+        height: 100%;
+    }
+
+    .runtime-grid textarea,
+    .runtime-grid pre {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        background: rgba(255,255,255,0.02);
+        color: var(--text-primary);
+        padding: 10px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        resize: none;
+    }
+
+    .runtime-label {
+        margin-bottom: 6px;
+        color: var(--text-tertiary);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .format-diff-grid {
+        display: grid;
+        grid-template-columns: 180px 1fr 1fr;
+        gap: 14px;
+        height: 100%;
+    }
+
+    .format-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .format-pane pre {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        background: rgba(255,255,255,0.02);
+        color: var(--text-primary);
+        padding: 10px;
+        font-size: 12px;
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .ast-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 14px;
+        height: 100%;
+    }
+
+    .ast-pane {
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        background: rgba(255,255,255,0.02);
+        padding: 10px;
+        overflow: auto;
+        min-height: 0;
+    }
+
+    .ast-title {
+        margin: 0 0 8px 0;
+        color: var(--accent-blue);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .ast-node {
+        margin-left: 12px;
+        line-height: 1.4;
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        font-size: 12px;
+    }
+
+    .ast-node > summary {
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .ast-node > summary::-webkit-details-marker { display: none; }
+
+    .ast-leaf {
+        margin-left: 16px;
+        color: var(--text-secondary);
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    @media (max-width: 1200px) {
+        .editor-main {
+            grid-template-columns: 1fr;
         }
-
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+        .editor-pane {
+            border-right: none;
+            border-bottom: 1px solid var(--border-subtle);
         }
-
-        .topbar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-            padding: 12px;
-            background: #111827;
-            border-bottom: 1px solid #1f2937;
-        }
-
-        .topbar input[type="text"],
-        .topbar select,
-        .topbar button,
-        .topbar label {
-            background: #1f2937;
-            color: #e5e7eb;
-            border: 1px solid #374151;
-            border-radius: 6px;
-            padding: 8px 10px;
-            font-size: 14px;
-        }
-
-        .topbar input[type="text"] {
-            min-width: 220px;
-        }
-
-        .topbar button,
-        .topbar label {
-            cursor: pointer;
-        }
-
-        .topbar label input {
-            display: none;
-        }
-
-        .status {
-            margin-left: auto;
-            font-size: 13px;
-            color: #93c5fd;
-        }
-
-        .main-shell {
-            flex: 1;
-            min-height: 0;
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 10px;
-            padding: 10px;
-        }
-
-        .editor-card,
-        .panel-card {
-            background: #111827;
-            border: 1px solid #1f2937;
-            border-radius: 10px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
-
-        .card-head {
-            padding: 10px 12px;
-            border-bottom: 1px solid #1f2937;
-            font-size: 13px;
-            color: #93c5fd;
-        }
-
-        #editor {
-            width: 100%;
-            height: 100%;
-        }
-
-        .panel-body {
-            padding: 12px;
-            overflow: auto;
-            display: grid;
-            gap: 10px;
-        }
-
-        .box {
-            background: #0b1220;
-            border: 1px solid #22324a;
-            border-radius: 8px;
-            padding: 10px;
-            font-size: 13px;
-        }
-
-        .box h4 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            color: #cbd5e1;
-        }
-
-        .box p {
-            margin: 0;
-            color: #94a3b8;
-            line-height: 1.4;
-        }
-
-        .bottom-tabs {
-            height: 220px;
-            padding: 0 10px 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .tab-buttons {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .tab-buttons button {
-            background: #1f2937;
-            color: #e5e7eb;
-            border: 1px solid #374151;
-            border-radius: 6px;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        .tab-content {
-            flex: 1;
-            background: #111827;
-            border: 1px solid #1f2937;
-            border-radius: 10px;
-            padding: 12px;
-            overflow: auto;
-            color: #94a3b8;
-            font-size: 13px;
-        }
-
-        .runtime-grid {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 12px;
-            height: 100%;
-        }
-
         .format-diff-grid {
-            display: grid;
-            grid-template-columns: 220px 1fr 1fr;
-            gap: 12px;
-            height: 100%;
+            grid-template-columns: 1fr;
         }
+    }
+</style>
+{% endblock %}
 
-        .format-panel {
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
+{% block content %}
+<div class="editor-layout">
+    <!-- Toolbar -->
+    <div class="editor-toolbar">
+        <div class="toolbar-group">
+            <input id="filename" type="text" class="toolbar-input" value="main.py" placeholder="file name" />
+            <select id="language" class="toolbar-select">
+                <option value="python">Python</option>
+                <option value="javascript">JavaScript</option>
+                <option value="typescript">TypeScript</option>
+                <option value="java">Java</option>
+                <option value="cpp">C++</option>
+                <option value="c">C</option>
+                <option value="go">Go</option>
+                <option value="php">PHP</option>
+                <option value="ruby">Ruby</option>
+                <option value="json">JSON</option>
+                <option value="html">HTML</option>
+                <option value="css">CSS</option>
+                <option value="markdown">Markdown</option>
+                <option value="plaintext">Plain Text</option>
+            </select>
+        </div>
 
-        .format-panel pre {
-            margin: 0;
-            width: 100%;
-            height: 100%;
-            border: 1px solid #22324a;
-            border-radius: 8px;
-            background: #0b1220;
-            color: #dbeafe;
-            padding: 10px;
-            font-size: 12px;
-            font-family: Consolas, "Courier New", monospace;
-            overflow: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
+        <div class="toolbar-sep"></div>
 
-        .ast-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 12px;
-            height: 100%;
-        }
+        <div class="toolbar-group">
+            <label class="toolbar-btn toolbar-upload">
+                📂 Upload
+                <input id="fileInput" type="file" accept=".py,.js,.ts,.java,.cpp,.c,.go,.php,.rb,.json,.html,.css,.md,.txt" />
+            </label>
+            <button id="newFileBtn" type="button" class="toolbar-btn">✨ New</button>
+            <button id="clearBtn" type="button" class="toolbar-btn">🗑 Clear</button>
+        </div>
 
-        .ast-pane {
-            border: 1px solid #22324a;
-            border-radius: 8px;
-            background: #0b1220;
-            padding: 10px;
-            overflow: auto;
-            min-height: 0;
-        }
+        <div class="toolbar-sep"></div>
 
-        .ast-title {
-            margin: 0 0 8px 0;
-            color: #93c5fd;
-            font-size: 12px;
-            font-weight: 600;
-        }
+        <div class="toolbar-group">
+            <button id="formatBtn" type="button" class="toolbar-btn">🎨 Format</button>
+            <button id="astBtn" type="button" class="toolbar-btn">🌳 AST</button>
+            <button id="flowchartBtn" type="button" class="toolbar-btn analyze">📊 Flowchart <span class="credit-badge">3 cr</span></button>
+            <button id="runBtn" type="button" class="toolbar-btn primary">▶ Run</button>
+        </div>
 
-        .ast-node {
-            margin-left: 12px;
-            line-height: 1.4;
-            color: #dbeafe;
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 12px;
-        }
+        <div class="toolbar-sep"></div>
 
-        .ast-node > summary {
-            cursor: pointer;
-            list-style: none;
-        }
+        <div class="toolbar-group">
+            <button id="aiBtn" type="button" class="toolbar-btn ai-btn">🤖 AI Diagnose <span class="credit-badge">5 cr</span></button>
+            <button id="analyzeBtn" type="button" class="toolbar-btn analyze">⚡ Full Analysis</button>
+        </div>
 
-        .ast-node > summary::-webkit-details-marker {
-            display: none;
-        }
+        <div class="toolbar-sep"></div>
 
-        .ast-leaf {
-            margin-left: 16px;
-            color: #cbd5e1;
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 12px;
-            line-height: 1.4;
-        }
-
-        .runtime-grid textarea,
-        .runtime-grid pre {
-            margin: 0;
-            width: 100%;
-            height: 100%;
-            border: 1px solid #22324a;
-            border-radius: 8px;
-            background: #0b1220;
-            color: #dbeafe;
-            padding: 10px;
-            font-size: 12px;
-            font-family: Consolas, "Courier New", monospace;
-            resize: none;
-        }
-
-        .runtime-grid .label {
-            margin-bottom: 6px;
-            color: #93c5fd;
-            font-size: 12px;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        @media (max-width: 1024px) {
-            .main-shell {
-                grid-template-columns: 1fr;
-            }
-
-            .format-diff-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-
-<body>
-    <div class="topbar">
-        <input id="filename" type="text" value="main.py" placeholder="File name (e.g. app.py)" />
-
-        <select id="language">
-            <option value="python">Python</option>
-            <option value="javascript">JavaScript</option>
-            <option value="typescript">TypeScript</option>
-            <option value="java">Java</option>
-            <option value="cpp">C++</option>
-            <option value="c">C</option>
-            <option value="go">Go</option>
-            <option value="php">PHP</option>
-            <option value="ruby">Ruby</option>
-            <option value="json">JSON</option>
-            <option value="html">HTML</option>
-            <option value="css">CSS</option>
-            <option value="markdown">Markdown</option>
-            <option value="plaintext">Plain Text</option>
+        <select id="themeSelect" class="toolbar-select">
+            <option value="vs-dark">VS Dark</option>
+            <option value="vs">VS Light</option>
+            <option value="hc-black">HC Black</option>
+            <option value="hc-light">HC Light</option>
+            <option value="Dracula">Dracula</option>
+            <option value="Monokai">Monokai</option>
+            <option value="Solarized-dark">Solarized Dark</option>
+            <option value="Solarized-light">Solarized Light</option>
         </select>
 
-        <label>
-            Upload File
-            <input id="fileInput" type="file"
-                accept=".py,.js,.ts,.java,.cpp,.c,.go,.php,.rb,.json,.html,.css,.md,.txt" />
-        </label>
-
-        <button id="newFileBtn" type="button">New File</button>
-        <button id="clearBtn" type="button">Clear</button>
-        <button id="formatBtn" type="button">Format Code</button>
-        <button id="astBtn" type="button">Parse AST</button>
-        <button id="aiBtn" type="button">AI Diagnose</button>
-        <button id="runBtn" type="button">Run Code</button>
-        <button id="analyzeBtn" type="button">Run Analysis</button>
-
-        <select id="themeSelect">
-            <option value="vs-dark">Theme: VS Dark</option>
-            <option value="vs">Theme: VS Light</option>
-            <option value="hc-black">Theme: HC Black</option>
-            <option value="hc-light">Theme: HC Light</option>
-            <option value="Dracula">Theme: Dracula</option>
-            <option value="Monokai">Theme: Monokai</option>
-            <option value="Solarized-dark">Theme: Solarized Dark</option>
-            <option value="Solarized-light">Theme: Solarized Light</option>
-        </select>
-
-        <span class="status" id="status">Ready</span>
+        <div class="toolbar-status">
+            <span class="status-dot"></span>
+            <span id="status">Ready</span>
+        </div>
     </div>
 
-    <div class="main-shell">
-        <div class="editor-card">
-            <div class="card-head">Code Editor</div>
+    <!-- Editor + Diagnosis Panel -->
+    <div class="editor-main with-panel" id="editorMain">
+        <div class="editor-pane">
+            <div class="editor-pane-header">
+                <span>Code Editor</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span id="editorLang" style="color:var(--accent-blue);">python</span>
+                    <button class="panel-toggle-btn" id="panelToggle" title="Toggle diagnosis panel">◀</button>
+                </div>
+            </div>
             <div style="flex:1;min-height:0;">
                 <div id="editor"></div>
             </div>
         </div>
 
-        <div class="panel-card">
-            <div class="card-head">Learning Diagnosis (Quick View)</div>
-            <div class="panel-body">
-                <div class="box">
-                    <h4>Issue</h4>
-                    <p id="issueText">No analysis run yet.</p>
-                </div>
-                <div class="box">
+        <div class="diagnosis-panel">
+            <div class="editor-pane-header">
+                <span>Learning Diagnosis</span>
+            </div>
+            <div class="diagnosis-scroll">
+                <div class="diag-card highlight">
                     <h4>Confidence</h4>
-                    <p id="confidenceText">Awaiting AST diagnostics.</p>
+                    <div class="confidence-row">
+                        <div class="confidence-ring" id="confRing">
+                            <svg viewBox="0 0 64 64">
+                                <circle class="ring-bg" cx="32" cy="32" r="26"/>
+                                <circle class="ring-fill" cx="32" cy="32" r="26"
+                                    stroke="url(#confGrad)"
+                                    stroke-dasharray="163.36"
+                                    stroke-dashoffset="163.36"
+                                    id="confCircle"/>
+                                <defs>
+                                    <linearGradient id="confGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#5b8fd9"/>
+                                        <stop offset="100%" stop-color="#9b7bd4"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <div class="ring-center" id="confValue">—</div>
+                        </div>
+                        <div class="confidence-meta">
+                            <div class="confidence-label-text" id="confLabel">Awaiting analysis</div>
+                            <div class="confidence-sublabel">Run an analysis to see your score</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="box">
+
+                <div class="diag-card">
+                    <h4>Issue</h4>
+                    <p id="issueText">Run an analysis to see results.</p>
+                </div>
+                <div class="diag-card">
                     <h4>Concept Gap</h4>
-                    <p id="conceptGapText">Will appear after clicking <b>Run Analysis</b>.</p>
+                    <p id="conceptGapText">Available after running a full analysis.</p>
                 </div>
-                <div class="box">
-                    <h4>Suggested Improvement</h4>
-                    <p id="suggestionText">You can open the full report page for complete details.</p>
+                <div class="diag-card">
+                    <h4>Suggestion</h4>
+                    <p id="suggestionText">See the Progress page for detailed history.</p>
                 </div>
-                <div class="box">
-                    <h4>Fix Now</h4>
-                    <p id="fixNowText">Will appear after AST analysis.</p>
+                <div class="diag-card">
+                    <h4>Quick Fix</h4>
+                    <p id="fixNowText">Available after parsing your code.</p>
                 </div>
-                <div class="box">
-                    <h4>Learn Now</h4>
-                    <p id="learnNowText">Will appear after AST analysis.</p>
+                <div class="diag-card">
+                    <h4>Learn</h4>
+                    <p id="learnNowText">Available after parsing your code.</p>
                 </div>
-                <div class="box">
-                    <h4>Practice Now</h4>
-                    <p id="practiceNowText">Will appear after AST analysis.</p>
+                <div class="diag-card">
+                    <h4>Practice</h4>
+                    <p id="practiceNowText">Available after parsing your code.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="bottom-tabs">
-        <div class="tab-buttons">
-            <button data-tab="problems">Problems</button>
-            <button data-tab="complexity">Complexity</button>
-            <button data-tab="formatted">Formatted</button>
-            <button data-tab="runtime">Runtime</button>
-            <button data-tab="ast">AST / Tree-sitter</button>
-            <button data-tab="progress">Progress</button>
+    <!-- Bottom Tabs -->
+    <div class="bottom-section">
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="problems">Problems</button>
+            <button class="tab-btn" data-tab="complexity">Complexity</button>
+            <button class="tab-btn" data-tab="formatted">Formatted</button>
+            <button class="tab-btn" data-tab="runtime">Runtime</button>
+            <button class="tab-btn" data-tab="ast">AST / Tree-sitter</button>
+            <button class="tab-btn" data-tab="flowchart">Flowchart</button>
+            <button class="tab-btn" data-tab="progress">Progress</button>
+            <button class="tab-btn" data-tab="notes">Notes</button>
         </div>
-        <div class="tab-content" id="tab-problems">
+        <div class="tab-panel" id="tab-problems">
             <pre id="problemsOutput">Loading tool status...</pre>
         </div>
-        <div class="tab-content hidden" id="tab-complexity">Complexity output placeholder.</div>
-        <div class="tab-content hidden" id="tab-formatted">
+        <div class="tab-panel hidden" id="tab-complexity">Complexity output placeholder.</div>
+        <div class="tab-panel hidden" id="tab-formatted">
             <div class="format-diff-grid">
-                <div class="format-panel" style="gap:8px;">
-                    <div class="label">formatted output</div>
-                    <button id="applyFormattedBtn" type="button">Apply to Editor</button>
-                    <button id="clearFormattedBtn" type="button">Clear Formatted</button>
+                <div class="format-actions">
+                    <div class="runtime-label">Formatted Output</div>
+                    <button id="applyFormattedBtn" type="button" class="toolbar-btn primary" style="width:100%;">Apply to Editor</button>
+                    <button id="clearFormattedBtn" type="button" class="toolbar-btn" style="width:100%;">Clear</button>
                 </div>
-                <div class="format-panel">
-                    <div class="label">before</div>
+                <div class="format-pane">
+                    <div class="runtime-label">Before</div>
                     <pre id="originalFormattedOutput">Original code snapshot appears here.</pre>
                 </div>
-                <div class="format-panel">
-                    <div class="label">after</div>
+                <div class="format-pane">
+                    <div class="runtime-label">After</div>
                     <pre id="formattedOutput">Formatted code preview appears here.</pre>
                 </div>
             </div>
         </div>
-        <div class="tab-content hidden" id="tab-runtime">
+        <div class="tab-panel hidden" id="tab-runtime">
             <div class="runtime-grid">
                 <div style="min-height:0;display:flex;flex-direction:column;">
-                    <div class="label">stdin (optional)</div>
+                    <div class="runtime-label">stdin (optional)</div>
                     <textarea id="runtimeStdin" placeholder="Input lines for program..."></textarea>
                 </div>
                 <div style="min-height:0;display:flex;flex-direction:column;">
-                    <div class="label">output</div>
+                    <div class="runtime-label">Output</div>
                     <pre id="runtimeOutput">Click Run Code to execute.</pre>
                 </div>
             </div>
         </div>
-        <div class="tab-content hidden" id="tab-ast">
+        <div class="tab-panel hidden" id="tab-ast">
             <div class="ast-grid">
                 <div class="ast-pane">
                     <p class="ast-title">AST Tree</p>
@@ -422,1010 +713,877 @@
                 </div>
             </div>
         </div>
-        <div class="tab-content hidden" id="tab-progress">
+        <div class="tab-panel hidden" id="tab-progress">
             <pre id="progressOutput">Run AST analysis to build progress timeline.</pre>
         </div>
+        <div class="tab-panel hidden" id="tab-flowchart">
+            <div id="flowchartContainer" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto;">
+                <div id="flowchartPlaceholder" style="color:var(--text-tertiary);font-size:13px;">Click the Flowchart button to generate a code flow diagram.</div>
+                <div id="flowchartLoading" style="display:none;color:var(--accent-blue);font-size:13px;">Generating flowchart via AI...</div>
+                <div id="mermaidOutput" style="display:none;width:100%;height:100%;overflow:auto;padding:10px;"></div>
+            </div>
+        </div>
+        <div class="tab-panel hidden" id="tab-notes">
+            <div style="display:flex;gap:10px;height:100%;min-height:0;">
+                <div style="flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;">
+                    <input id="noteTitle" type="text" placeholder="Note title..." style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:6px 10px;color:var(--text-primary);font-size:13px;outline:none;">
+                    <textarea id="noteContent" placeholder="Write your learning notes here..." style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text-primary);font-size:13px;outline:none;resize:none;font-family:inherit;min-height:0;"></textarea>
+                    <div style="display:flex;gap:6px;">
+                        <input id="noteTags" type="text" placeholder="Tags (comma-separated)" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:5px 8px;color:var(--text-primary);font-size:12px;outline:none;">
+                        <button id="saveNoteBtn" type="button" class="toolbar-btn primary" style="padding:5px 16px;">Save</button>
+                    </div>
+                </div>
+                <div id="notesList" style="width:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;">
+                    <div style="color:var(--text-tertiary);font-size:12px;text-align:center;padding:20px 0;">Your saved notes will appear here.</div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/loader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/standalone.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/babel.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/estree.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/typescript.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/html.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/postcss.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/markdown.js"></script>
-    <script>
-        const extensionToLanguage = {
-            py: "python", js: "javascript", ts: "typescript", java: "java",
-            cpp: "cpp", cc: "cpp", cxx: "cpp", c: "c", go: "go",
-            php: "php", rb: "ruby", json: "json", html: "html", htm: "html",
-            css: "css", md: "markdown", txt: "plaintext"
-        };
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/loader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/standalone.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/babel.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/estree.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/typescript.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/html.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/postcss.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+    const extensionToLanguage = {
+        py: "python", js: "javascript", ts: "typescript", java: "java",
+        cpp: "cpp", cc: "cpp", cxx: "cpp", c: "c", go: "go",
+        php: "php", rb: "ruby", json: "json", html: "html", htm: "html",
+        css: "css", md: "markdown", txt: "plaintext"
+    };
 
-        const languageToExtension = {
-            python: "py",
-            javascript: "js",
-            typescript: "ts",
-            java: "java",
-            cpp: "cpp",
-            c: "c",
-            go: "go",
-            php: "php",
-            ruby: "rb",
-            json: "json",
-            html: "html",
-            css: "css",
-            markdown: "md",
-            plaintext: "txt"
-        };
+    const languageToExtension = {
+        python: "py", javascript: "js", typescript: "ts", java: "java",
+        cpp: "cpp", c: "c", go: "go", php: "php", ruby: "rb",
+        json: "json", html: "html", css: "css", markdown: "md", plaintext: "txt"
+    };
 
-        const filenameInput = document.getElementById("filename");
-        const languageSelect = document.getElementById("language");
-        const fileInput = document.getElementById("fileInput");
-        const statusEl = document.getElementById("status");
-        const newFileBtn = document.getElementById("newFileBtn");
-        const clearBtn = document.getElementById("clearBtn");
-        const formatBtn = document.getElementById("formatBtn");
-        const astBtn = document.getElementById("astBtn");
-        const aiBtn = document.getElementById("aiBtn");
-        const runBtn = document.getElementById("runBtn");
-        const analyzeBtn = document.getElementById("analyzeBtn");
-        const themeSelect = document.getElementById("themeSelect");
-        const runtimeStdin = document.getElementById("runtimeStdin");
-        const runtimeOutput = document.getElementById("runtimeOutput");
-        const formattedOutput = document.getElementById("formattedOutput");
-        const originalFormattedOutput = document.getElementById("originalFormattedOutput");
-        const applyFormattedBtn = document.getElementById("applyFormattedBtn");
-        const clearFormattedBtn = document.getElementById("clearFormattedBtn");
-        const astOutput = document.getElementById("astOutput");
-        const astTreeRoot = document.getElementById("astTreeRoot");
-        const issueText = document.getElementById("issueText");
-        const confidenceText = document.getElementById("confidenceText");
-        const conceptGapText = document.getElementById("conceptGapText");
-        const suggestionText = document.getElementById("suggestionText");
-        const fixNowText = document.getElementById("fixNowText");
-        const learnNowText = document.getElementById("learnNowText");
-        const practiceNowText = document.getElementById("practiceNowText");
-        const progressOutput = document.getElementById("progressOutput");
-        const problemsOutput = document.getElementById("problemsOutput");
+    const filenameInput = document.getElementById("filename");
+    const languageSelect = document.getElementById("language");
+    const fileInput = document.getElementById("fileInput");
+    const statusEl = document.getElementById("status");
+    const editorLangEl = document.getElementById("editorLang");
+    const newFileBtn = document.getElementById("newFileBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const formatBtn = document.getElementById("formatBtn");
+    const astBtn = document.getElementById("astBtn");
+    const aiBtn = document.getElementById("aiBtn");
+    const runBtn = document.getElementById("runBtn");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const themeSelect = document.getElementById("themeSelect");
+    const runtimeStdin = document.getElementById("runtimeStdin");
+    const runtimeOutput = document.getElementById("runtimeOutput");
+    const formattedOutput = document.getElementById("formattedOutput");
+    const originalFormattedOutput = document.getElementById("originalFormattedOutput");
+    const applyFormattedBtn = document.getElementById("applyFormattedBtn");
+    const clearFormattedBtn = document.getElementById("clearFormattedBtn");
+    const astOutput = document.getElementById("astOutput");
+    const astTreeRoot = document.getElementById("astTreeRoot");
+    const issueText = document.getElementById("issueText");
+    const conceptGapText = document.getElementById("conceptGapText");
+    const suggestionText = document.getElementById("suggestionText");
+    const fixNowText = document.getElementById("fixNowText");
+    const learnNowText = document.getElementById("learnNowText");
+    const practiceNowText = document.getElementById("practiceNowText");
+    const progressOutput = document.getElementById("progressOutput");
+    const problemsOutput = document.getElementById("problemsOutput");
 
-        const builtinThemes = new Set(["vs", "vs-dark", "hc-black", "hc-light"]);
-        const loadedCustomThemes = new Set();
+    const confCircle = document.getElementById("confCircle");
+    const confValue = document.getElementById("confValue");
+    const confLabel = document.getElementById("confLabel");
+    const circumference = 2 * Math.PI * 26; // ~163.36
 
-        let editor;
-        let latestFormattedCode = "";
-        let latestOriginalCode = "";
-        let latestSnapshotId = null;
-        let latestConceptSignals = {};
+    const builtinThemes = new Set(["vs", "vs-dark", "hc-black", "hc-light"]);
+    const loadedCustomThemes = new Set();
 
-        function setStatus(message) { statusEl.textContent = message; }
+    let editor;
+    let latestFormattedCode = "";
+    let latestOriginalCode = "";
+    let latestSnapshotId = null;
+    let latestConceptSignals = {};
 
-        function activateTab(key) {
-            document.querySelectorAll(".tab-content").forEach((el) => el.classList.add("hidden"));
-            const target = document.getElementById(`tab-${key}`);
-            if (target) target.classList.remove("hidden");
-        }
+    function setStatus(message) { statusEl.textContent = message; }
 
-        function getCookie(name) {
-            const cookieValue = document.cookie
-                .split(";")
-                .map((c) => c.trim())
-                .find((c) => c.startsWith(`${name}=`));
-            return cookieValue ? decodeURIComponent(cookieValue.split("=")[1]) : "";
-        }
+    function activateTab(key) {
+        document.querySelectorAll(".tab-panel").forEach((el) => el.classList.add("hidden"));
+        document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.remove("active"));
+        const target = document.getElementById(`tab-${key}`);
+        if (target) target.classList.remove("hidden");
+        const tabBtn = document.querySelector(`.tab-btn[data-tab="${key}"]`);
+        if (tabBtn) tabBtn.classList.add("active");
+    }
 
-        function convertVsCodeTheme(themeData) {
-            const type = String(themeData.type || "dark").toLowerCase();
-            const base = type.includes("light") ? "vs" : type.includes("hc") ? "hc-black" : "vs-dark";
-            const rules = [];
-            const tokenColors = Array.isArray(themeData.tokenColors) ? themeData.tokenColors : [];
+    function convertVsCodeTheme(themeData) {
+        const type = String(themeData.type || "dark").toLowerCase();
+        const base = type.includes("light") ? "vs" : type.includes("hc") ? "hc-black" : "vs-dark";
+        const rules = [];
+        const tokenColors = Array.isArray(themeData.tokenColors) ? themeData.tokenColors : [];
 
-            tokenColors.forEach((entry) => {
-                const settings = entry.settings || {};
-                const rawScopes = Array.isArray(entry.scope)
-                    ? entry.scope
-                    : String(entry.scope || "")
-                        .split(",")
-                        .map((scope) => scope.trim())
-                        .filter(Boolean);
+        tokenColors.forEach((entry) => {
+            const settings = entry.settings || {};
+            const rawScopes = Array.isArray(entry.scope)
+                ? entry.scope
+                : String(entry.scope || "")
+                    .split(",")
+                    .map((scope) => scope.trim())
+                    .filter(Boolean);
 
-                rawScopes.forEach((scope) => {
-                    rules.push({
-                        token: scope,
-                        foreground: settings.foreground ? String(settings.foreground).replace("#", "") : undefined,
-                        fontStyle: settings.fontStyle || "",
-                    });
+            rawScopes.forEach((scope) => {
+                rules.push({
+                    token: scope,
+                    foreground: settings.foreground ? String(settings.foreground).replace("#", "") : undefined,
+                    fontStyle: settings.fontStyle || "",
                 });
             });
+        });
 
-            return {
-                base,
-                inherit: true,
-                rules,
-                colors: themeData.colors || {},
-            };
+        return {
+            base,
+            inherit: true,
+            rules,
+            colors: themeData.colors || {},
+        };
+    }
+
+    async function ensureThemeLoaded(themeName) {
+        if (builtinThemes.has(themeName) || loadedCustomThemes.has(themeName)) return;
+        const url = `https://cdn.jsdelivr.net/npm/monaco-themes@0.4.4/themes/${encodeURIComponent(themeName)}.json`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Could not load theme '${themeName}'`);
+        const rawTheme = await response.json();
+        monaco.editor.defineTheme(themeName, convertVsCodeTheme(rawTheme));
+        loadedCustomThemes.add(themeName);
+    }
+
+    function setRuntimeOutput(text) { runtimeOutput.textContent = text; }
+
+    function setFormattedOutput(formattedText, originalText = "") {
+        latestFormattedCode = formattedText || "";
+        latestOriginalCode = originalText || "";
+        formattedOutput.textContent = latestFormattedCode || "Formatted code preview appears here.";
+        originalFormattedOutput.textContent = latestOriginalCode || "Original code snapshot appears here.";
+    }
+
+    function setAstOutput(text) { astOutput.textContent = text; }
+    function clearAstTree() { astTreeRoot.innerHTML = ""; }
+
+    function formatAstLabel(node) {
+        const span = node.start && node.end ? ` [${node.start.row}:${node.start.column} → ${node.end.row}:${node.end.column}]` : "";
+        return `${node.type}${span}`;
+    }
+
+    function createAstNodeElement(node, depth = 0, maxDepth = 10) {
+        if (!node || depth > maxDepth) return null;
+        const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+        if (!hasChildren) {
+            const leaf = document.createElement("div");
+            leaf.className = "ast-leaf";
+            leaf.textContent = formatAstLabel(node);
+            return leaf;
         }
+        const details = document.createElement("details");
+        details.className = "ast-node";
+        if (depth < 2) details.open = true;
+        const summary = document.createElement("summary");
+        summary.textContent = formatAstLabel(node);
+        details.appendChild(summary);
+        node.children.forEach((child) => {
+            const childNode = createAstNodeElement(child, depth + 1, maxDepth);
+            if (childNode) details.appendChild(childNode);
+        });
+        return details;
+    }
 
-        async function ensureThemeLoaded(themeName) {
-            if (builtinThemes.has(themeName) || loadedCustomThemes.has(themeName)) {
-                return;
-            }
+    function renderAstTree(astRoot) {
+        clearAstTree();
+        if (!astRoot) { astTreeRoot.textContent = "No AST data available."; return; }
+        const treeNode = createAstNodeElement(astRoot, 0, 10);
+        if (!treeNode) { astTreeRoot.textContent = "Could not render AST tree."; return; }
+        astTreeRoot.appendChild(treeNode);
+    }
 
-            const url = `https://cdn.jsdelivr.net/npm/monaco-themes@0.4.4/themes/${encodeURIComponent(themeName)}.json`;
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Could not load theme '${themeName}'`);
-            }
+    function updateConfidenceRing(score) {
+        const pct = Math.max(0, Math.min(100, score || 0));
+        const offset = circumference - (pct / 100) * circumference;
+        confCircle.style.strokeDashoffset = offset;
+        confValue.textContent = pct;
 
-            const rawTheme = await response.json();
-            monaco.editor.defineTheme(themeName, convertVsCodeTheme(rawTheme));
-            loadedCustomThemes.add(themeName);
-        }
+        let color1 = '#ef4444', color2 = '#f97316';
+        if (pct >= 80) { color1 = '#10b981'; color2 = '#34d399'; }
+        else if (pct >= 60) { color1 = '#3b82f6'; color2 = '#8b5cf6'; }
+        else if (pct >= 40) { color1 = '#f59e0b'; color2 = '#fbbf24'; }
+    }
 
-        function setRuntimeOutput(text) {
-            runtimeOutput.textContent = text;
-        }
+    function updateConceptPanel(signals) {
+        if (!signals) return;
+        issueText.textContent = signals.issue || "No major issue detected.";
+        const score = typeof signals.confidence_score === "number" ? signals.confidence_score : null;
+        const label = signals.confidence_label || "Unknown";
+        confLabel.textContent = label;
+        if (score !== null) updateConfidenceRing(score);
+        conceptGapText.textContent = signals.concept_gap || "No major concept gap detected.";
+        suggestionText.textContent = signals.suggestion || "Continue with complexity and naming review.";
+        fixNowText.textContent = signals.fix_now || "Apply one focused refactor in current code.";
+        learnNowText.textContent = signals.learn_now || "Review the underlying concept behind this issue.";
+        practiceNowText.textContent = signals.practice_now || "Attempt one targeted practice problem.";
+        latestConceptSignals = { ...signals };
+    }
 
-        function setFormattedOutput(formattedText, originalText = "") {
-            latestFormattedCode = formattedText || "";
-            latestOriginalCode = originalText || "";
-            formattedOutput.textContent = latestFormattedCode || "Formatted code preview appears here.";
-            originalFormattedOutput.textContent = latestOriginalCode || "Original code snapshot appears here.";
-        }
-
-        function setAstOutput(text) {
-            astOutput.textContent = text;
-        }
-
-        function clearAstTree() {
-            astTreeRoot.innerHTML = "";
-        }
-
-        function formatAstLabel(node) {
-            const span = node.start && node.end
-                ? ` [${node.start.row}:${node.start.column} → ${node.end.row}:${node.end.column}]`
-                : "";
-            return `${node.type}${span}`;
-        }
-
-        function createAstNodeElement(node, depth = 0, maxDepth = 10) {
-            if (!node || depth > maxDepth) {
-                return null;
-            }
-
-            const hasChildren = Array.isArray(node.children) && node.children.length > 0;
-            if (!hasChildren) {
-                const leaf = document.createElement("div");
-                leaf.className = "ast-leaf";
-                leaf.textContent = formatAstLabel(node);
-                return leaf;
-            }
-
-            const details = document.createElement("details");
-            details.className = "ast-node";
-            if (depth < 2) {
-                details.open = true;
-            }
-
-            const summary = document.createElement("summary");
-            summary.textContent = formatAstLabel(node);
-            details.appendChild(summary);
-
-            node.children.forEach((child) => {
-                const childNode = createAstNodeElement(child, depth + 1, maxDepth);
-                if (childNode) {
-                    details.appendChild(childNode);
-                }
+    function renderProgress(progressData) {
+        if (!progressData) { progressOutput.textContent = "No progress data available yet."; return; }
+        const lines = [];
+        lines.push(`Attempts: ${progressData.attempt_count ?? 0}`);
+        lines.push(`Average Confidence: ${progressData.average_confidence ?? 0}`);
+        lines.push("");
+        lines.push("Concept Frequency:");
+        const conceptCounts = progressData.concept_counts || {};
+        const conceptEntries = Object.entries(conceptCounts);
+        if (conceptEntries.length === 0) { lines.push("- No concept data yet."); }
+        else { conceptEntries.forEach(([tag, count]) => { lines.push(`- ${tag}: ${count}`); }); }
+        lines.push("");
+        lines.push("Timeline:");
+        const timeline = progressData.timeline || [];
+        if (timeline.length === 0) { lines.push("- No attempts yet."); }
+        else {
+            timeline.forEach((item, idx) => {
+                lines.push(`${idx + 1}. [${item.language}] ${item.filename} | confidence ${item.confidence_score} | ${item.concept_tag || "unknown"}`);
+                lines.push(`   issue: ${item.issue || "-"}`);
             });
-
-            return details;
         }
+        progressOutput.textContent = lines.join("\n");
+    }
 
-        function renderAstTree(astRoot) {
-            clearAstTree();
-            if (!astRoot) {
-                astTreeRoot.textContent = "No AST data available.";
-                return;
-            }
-            const treeNode = createAstNodeElement(astRoot, 0, 10);
-            if (!treeNode) {
-                astTreeRoot.textContent = "Could not render AST tree.";
-                return;
-            }
-            astTreeRoot.appendChild(treeNode);
+    function renderToolStatus(statusPayload) {
+        if (!statusPayload || !statusPayload.status) { problemsOutput.textContent = "No tool status available."; return; }
+        const status = statusPayload.status;
+        const mark = (flag) => (flag ? "✅" : "❌");
+        const lines = [
+            "Backend Capability Status", "",
+            `${mark(status.black?.available)} black ${status.black?.path ? `(${status.black.path})` : ""}`,
+            `${mark(status.clang_format?.available)} clang-format ${status.clang_format?.path ? `(${status.clang_format.path})` : ""}`,
+            `${mark(status.google_java_format?.available)} google-java-format`,
+            `${mark(status.jsbeautifier?.available)} jsbeautifier`,
+            `${mark(status.tree_sitter?.available)} tree-sitter backend`,
+            `${mark(status.ai_key?.available)} AI key configured (INCEPTION_API_KEY)`,
+        ];
+        problemsOutput.textContent = lines.join("\n");
+    }
+
+    async function refreshToolStatus() {
+        try {
+            const response = await fetch("{% url 'formatter_status_local' %}");
+            const data = await response.json();
+            if (response.ok && data.ok) renderToolStatus(data);
+            else problemsOutput.textContent = data.error || "Failed to load tool status.";
+        } catch (error) {
+            problemsOutput.textContent = `Tool status fetch failed: ${String(error.message || error)}`;
         }
+    }
 
-        function updateConceptPanel(signals) {
-            if (!signals) {
-                return;
-            }
-            issueText.textContent = signals.issue || "No major issue detected.";
-            const score = typeof signals.confidence_score === "number" ? signals.confidence_score : null;
-            const label = signals.confidence_label || "Unknown";
-            confidenceText.textContent = score === null ? label : `${score}/100 (${label})`;
-            conceptGapText.textContent = signals.concept_gap || "No major concept gap detected.";
-            suggestionText.textContent = signals.suggestion || "Continue with complexity and naming review.";
-            fixNowText.textContent = signals.fix_now || "Apply one focused refactor in current code.";
-            learnNowText.textContent = signals.learn_now || "Review the underlying concept behind this issue.";
-            practiceNowText.textContent = signals.practice_now || "Attempt one targeted practice problem.";
-            latestConceptSignals = { ...signals };
+    async function logLearnerAction(actionType, metadata = {}) {
+        try {
+            await fetch("{% url 'learner_action_local' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                body: JSON.stringify({
+                    action_type: actionType, snapshot_id: latestSnapshotId,
+                    filename: filenameInput.value.trim() || "untitled",
+                    language: languageSelect.value, metadata,
+                }),
+            });
+        } catch (error) { console.error("action log failed", error); }
+    }
+
+    async function refreshProgress() {
+        try {
+            const params = new URLSearchParams({ language: languageSelect.value, limit: "20" });
+            const response = await fetch(`{% url 'progress_timeline_local' %}?${params.toString()}`);
+            const data = await response.json();
+            if (response.ok && data.ok) renderProgress(data);
+        } catch (error) {
+            progressOutput.textContent = `Progress fetch failed: ${String(error.message || error)}`;
         }
+    }
 
-        function renderProgress(progressData) {
-            if (!progressData) {
-                progressOutput.textContent = "No progress data available yet.";
-                return;
-            }
+    function renderAstHumanReadable(data) {
+        const signals = data.concept_signals || {};
+        return [
+            `Language: ${data.language || "unknown"}`,
+            `Root Type: ${data.root_type || "unknown"}`,
+            `Parse Errors: ${data.has_error ? "Yes" : "No"}`,
+            `Confidence: ${signals.confidence_score ?? "N/A"}/100 (${signals.confidence_label || "Unknown"})`,
+            `Loops: ${signals.loop_count ?? "N/A"}, Loop Nesting: ${signals.max_loop_nesting ?? "N/A"}`,
+            `Conditionals: ${signals.conditional_count ?? "N/A"}, Functions: ${signals.function_like_count ?? "N/A"}`,
+            `Max Tree Depth: ${signals.max_tree_depth ?? "N/A"}`,
+        ].join("\n");
+    }
 
-            const lines = [];
-            lines.push(`Attempts: ${progressData.attempt_count ?? 0}`);
-            lines.push(`Average Confidence: ${progressData.average_confidence ?? 0}`);
-            lines.push("");
-            lines.push("Concept Frequency:");
+    function getPrettierPluginsList() {
+        if (typeof window === "undefined" || !window.prettierPlugins) return null;
+        const raw = window.prettierPlugins;
+        if (Array.isArray(raw)) return raw.filter(Boolean);
+        if (typeof raw === "object") return Object.values(raw).filter(Boolean);
+        return null;
+    }
 
-            const conceptCounts = progressData.concept_counts || {};
-            const conceptEntries = Object.entries(conceptCounts);
-            if (conceptEntries.length === 0) {
-                lines.push("- No concept data yet.");
-            } else {
-                conceptEntries.forEach(([tag, count]) => {
-                    lines.push(`- ${tag}: ${count}`);
-                });
-            }
+    function getPrettierConfig(language) {
+        const pluginsList = getPrettierPluginsList();
+        if (typeof prettier === "undefined" || !pluginsList || pluginsList.length === 0) return null;
+        const commonOptions = { printWidth: 100, tabWidth: 4, useTabs: false };
+        const configByLanguage = {
+            javascript: { parser: "babel", plugins: pluginsList, options: { semi: true, singleQuote: false } },
+            typescript: { parser: "typescript", plugins: pluginsList, options: { semi: true, singleQuote: false } },
+            json: { parser: "json", plugins: pluginsList, options: {} },
+            html: { parser: "html", plugins: pluginsList, options: {} },
+            css: { parser: "css", plugins: pluginsList, options: {} },
+            markdown: { parser: "markdown", plugins: pluginsList, options: {} },
+        };
+        const picked = configByLanguage[language];
+        if (!picked || !picked.plugins || picked.plugins.length === 0) return null;
+        return { parser: picked.parser, plugins: picked.plugins, ...commonOptions, ...picked.options };
+    }
 
-            lines.push("");
-            lines.push("Timeline:");
-            const timeline = progressData.timeline || [];
-            if (timeline.length === 0) {
-                lines.push("- No attempts yet.");
-            } else {
-                timeline.forEach((item, idx) => {
-                    lines.push(
-                        `${idx + 1}. [${item.language}] ${item.filename} | confidence ${item.confidence_score} | ${item.concept_tag || "unknown"}`
-                    );
-                    lines.push(`   issue: ${item.issue || "-"}`);
-                });
-            }
+    async function formatWithPrettier() {
+        const language = languageSelect.value;
+        const code = editor.getValue();
+        if (!code.trim()) { setStatus("Nothing to format"); return; }
 
-            progressOutput.textContent = lines.join("\n");
-        }
-
-        function renderToolStatus(statusPayload) {
-            if (!statusPayload || !statusPayload.status) {
-                problemsOutput.textContent = "No tool status available.";
-                return;
-            }
-
-            const status = statusPayload.status;
-            const mark = (flag) => (flag ? "✅" : "❌");
-            const lines = [
-                "Backend Capability Status",
-                "",
-                `${mark(status.black?.available)} black ${status.black?.path ? `(${status.black.path})` : ""}`,
-                `${mark(status.clang_format?.available)} clang-format ${status.clang_format?.path ? `(${status.clang_format.path})` : ""}`,
-                `${mark(status.google_java_format?.available)} google-java-format`,
-                `${mark(status.jsbeautifier?.available)} jsbeautifier`,
-                `${mark(status.tree_sitter?.available)} tree-sitter backend`,
-                `${mark(status.ai_key?.available)} AI key configured (INCEPTION_API_KEY)`,
-            ];
-
-            problemsOutput.textContent = lines.join("\n");
-        }
-
-        async function refreshToolStatus() {
+        const backendLangs = new Set(["python", "c", "cpp", "java", "html", "javascript", "css", "json"]);
+        if (backendLangs.has(language)) {
             try {
-                const response = await fetch("{% url 'formatter_status_local' %}");
-                const data = await response.json();
-                if (response.ok && data.ok) {
-                    renderToolStatus(data);
-                } else {
-                    problemsOutput.textContent = data.error || "Failed to load tool status.";
-                }
-            } catch (error) {
-                problemsOutput.textContent = `Tool status fetch failed: ${String(error.message || error)}`;
-            }
-        }
-
-        async function logLearnerAction(actionType, metadata = {}) {
-            try {
-                await fetch("{% url 'learner_action_local' %}", {
+                const response = await fetch("{% url 'format_code_local' %}", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie("csrftoken"),
-                    },
-                    body: JSON.stringify({
-                        action_type: actionType,
-                        snapshot_id: latestSnapshotId,
-                        filename: filenameInput.value.trim() || "untitled",
-                        language: languageSelect.value,
-                        metadata,
-                    }),
+                    headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                    body: JSON.stringify({ language, code }),
                 });
-            } catch (error) {
-                console.error("action log failed", error);
-            }
-        }
-
-        async function refreshProgress() {
-            try {
-                const params = new URLSearchParams({
-                    language: languageSelect.value,
-                    limit: "20",
-                });
-                const response = await fetch(`{% url 'progress_timeline_local' %}?${params.toString()}`);
                 const data = await response.json();
-                if (response.ok && data.ok) {
-                    renderProgress(data);
-                }
-            } catch (error) {
-                progressOutput.textContent = `Progress fetch failed: ${String(error.message || error)}`;
-            }
-        }
-
-        function buildAstTreeLines(astNode, depth = 0, maxLines = 260, lines = []) {
-            if (!astNode || lines.length >= maxLines) {
-                return lines;
-            }
-
-            const indent = "  ".repeat(depth);
-            const span = astNode.start && astNode.end
-                ? ` [${astNode.start.row}:${astNode.start.column} -> ${astNode.end.row}:${astNode.end.column}]`
-                : "";
-            lines.push(`${indent}- ${astNode.type}${span}`);
-
-            if (Array.isArray(astNode.children)) {
-                for (const child of astNode.children) {
-                    if (lines.length >= maxLines) {
-                        break;
-                    }
-                    buildAstTreeLines(child, depth + 1, maxLines, lines);
-                }
-            }
-
-            return lines;
-        }
-
-        function renderAstHumanReadable(data) {
-            const signals = data.concept_signals || {};
-            return [
-                `Language: ${data.language || "unknown"}`,
-                `Root Type: ${data.root_type || "unknown"}`,
-                `Parse Errors: ${data.has_error ? "Yes" : "No"}`,
-                `Confidence: ${signals.confidence_score ?? "N/A"}/100 (${signals.confidence_label || "Unknown"})`,
-                `Loops: ${signals.loop_count ?? "N/A"}, Loop Nesting: ${signals.max_loop_nesting ?? "N/A"}`,
-                `Conditionals: ${signals.conditional_count ?? "N/A"}, Functions: ${signals.function_like_count ?? "N/A"}`,
-                `Max Tree Depth: ${signals.max_tree_depth ?? "N/A"}`,
-            ].join("\n");
-        }
-
-        function getPrettierPluginsList() {
-            if (typeof window === "undefined" || !window.prettierPlugins) {
-                return null;
-            }
-
-            const raw = window.prettierPlugins;
-            if (Array.isArray(raw)) {
-                return raw.filter(Boolean);
-            }
-
-            if (typeof raw === "object") {
-                return Object.values(raw).filter(Boolean);
-            }
-
-            return null;
-        }
-
-        function getPrettierConfig(language) {
-            const pluginsList = getPrettierPluginsList();
-            if (typeof prettier === "undefined" || !pluginsList || pluginsList.length === 0) {
-                return null;
-            }
-
-            const commonOptions = {
-                printWidth: 100,
-                tabWidth: 4,
-                useTabs: false,
-            };
-
-            const configByLanguage = {
-                javascript: {
-                    parser: "babel",
-                    plugins: pluginsList,
-                    options: { semi: true, singleQuote: false },
-                },
-                typescript: {
-                    parser: "typescript",
-                    plugins: pluginsList,
-                    options: { semi: true, singleQuote: false },
-                },
-                json: {
-                    parser: "json",
-                    plugins: pluginsList,
-                    options: {},
-                },
-                html: {
-                    parser: "html",
-                    plugins: pluginsList,
-                    options: {},
-                },
-                css: {
-                    parser: "css",
-                    plugins: pluginsList,
-                    options: {},
-                },
-                markdown: {
-                    parser: "markdown",
-                    plugins: pluginsList,
-                    options: {},
-                },
-            };
-
-            const picked = configByLanguage[language];
-            if (!picked || !picked.plugins || picked.plugins.length === 0) {
-                return null;
-            }
-
-            return {
-                parser: picked.parser,
-                plugins: picked.plugins,
-                ...commonOptions,
-                ...picked.options,
-            };
-        }
-
-        async function formatWithPrettier() {
-            const language = languageSelect.value;
-            const code = editor.getValue();
-
-            if (!code.trim()) {
-                setStatus("Nothing to format");
-                return;
-            }
-
-            const backendLangs = new Set(["python", "c", "cpp", "java", "html", "javascript", "css", "json"]);
-            if (backendLangs.has(language)) {
-                try {
-                    const response = await fetch("{% url 'format_code_local' %}", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRFToken": getCookie("csrftoken"),
-                        },
-                        body: JSON.stringify({ language, code }),
-                    });
-                    const data = await response.json();
-
-                    if (!response.ok || !data.ok) {
-                        setStatus(`Format failed: ${data.error || "Unknown error"}`);
-                        return;
-                    }
-
-                    setFormattedOutput(data.formatted_code || code, code);
-                    activateTab("formatted");
-                    if (data.changed === false) {
-                        setStatus(`No formatting changes needed (${data.tool}, ${language})`);
-                        logLearnerAction("format_no_change", { tool: data.tool, language });
-                    } else {
-                        setStatus(`Formatted with ${data.tool} (${language})`);
-                        logLearnerAction("format_success", { tool: data.tool, language, changed: true });
-                    }
-                    return;
-                } catch (error) {
-                    setStatus(`Format failed: ${String(error.message || error)}`);
-                    return;
-                }
-            }
-
-            const prettierConfig = getPrettierConfig(language);
-            if (!prettierConfig) {
-                setStatus(`Prettier runtime/plugin missing for ${language}. Try Ctrl+F5 hard refresh.`);
-                return;
-            }
-
-            try {
-                const formatted = await prettier.format(code, prettierConfig);
-                setFormattedOutput(formatted, code);
+                if (!response.ok || !data.ok) { setStatus(`Format failed: ${data.error || "Unknown error"}`); return; }
+                setFormattedOutput(data.formatted_code || code, code);
                 activateTab("formatted");
-                setStatus(`Formatted with Prettier (${language})`);
-            } catch (error) {
-                setStatus(`Prettier error: ${String(error.message || error)}`);
-            }
-        }
-
-        async function parseAst() {
-            const code = editor.getValue();
-            const language = languageSelect.value;
-            const filename = filenameInput.value.trim() || "untitled";
-
-            if (!code.trim()) {
-                activateTab("ast");
-                setAstOutput("Code is empty.");
-                return;
-            }
-
-            activateTab("ast");
-            setAstOutput("Parsing AST...");
-
-            try {
-                const response = await fetch("{% url 'ast_tree_local' %}", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie("csrftoken"),
-                    },
-                    body: JSON.stringify({
-                        language,
-                        filename,
-                        code,
-                        max_depth: 6,
-                        max_children: 40,
-                    }),
-                });
-
-                const data = await response.json();
-                if (!response.ok || !data.ok) {
-                    setAstOutput(data.error || "AST parsing failed.");
-                    setStatus("AST parse failed");
-                    return;
-                }
-
-                const astView = {
-                    language: data.language,
-                    root_type: data.root_type,
-                    has_error: data.has_error,
-                    sexp: data.sexp,
-                    ast: data.ast,
-                    concept_signals: data.concept_signals,
-                };
-                setAstOutput(renderAstHumanReadable(astView));
-                renderAstTree(astView.ast);
-                updateConceptPanel(data.concept_signals);
-                latestSnapshotId = data.snapshot_id || null;
-                renderProgress(data.progress || null);
-                setStatus(`AST parsed (${data.language})`);
-                await logLearnerAction("ast_parse", { language: data.language, snapshot_id: latestSnapshotId });
-            } catch (error) {
-                setAstOutput(String(error));
-                clearAstTree();
-                setStatus("AST parse failed");
-            }
-        }
-
-        async function runAiDiagnose() {
-            const code = editor.getValue();
-            const language = languageSelect.value;
-            const filename = filenameInput.value.trim() || "untitled";
-
-            if (!code.trim()) {
-                setStatus("Code is empty");
-                return;
-            }
-
-            try {
-                setStatus("Running AI diagnosis...");
-                const response = await fetch("{% url 'ai_diagnose_local' %}", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie("csrftoken"),
-                    },
-                    body: JSON.stringify({
-                        code,
-                        language,
-                        filename,
-                        concept_signals: latestConceptSignals,
-                    }),
-                });
-
-                const data = await response.json();
-                if (!response.ok || !data.ok) {
-                    setStatus(`AI diagnose failed: ${data.error || "Unknown error"}`);
-                    return;
-                }
-
-                updateConceptPanel(data.concept_signals || {});
-                latestSnapshotId = data.snapshot_id || latestSnapshotId;
-                renderProgress(data.progress || null);
-                await logLearnerAction("ai_diagnose_clicked", { language, filename });
-                setStatus("AI diagnosis updated learning guidance");
-            } catch (error) {
-                setStatus(`AI diagnose failed: ${String(error.message || error)}`);
-            }
-        }
-
-        async function runFullAnalysis() {
-            const language = languageSelect.value;
-            const filename = filenameInput.value.trim() || "untitled";
-            const originalCode = editor.getValue();
-
-            if (!originalCode.trim()) {
-                setStatus("Code is empty");
-                return;
-            }
-
-            let workingCode = originalCode;
-            let astSignals = { ...latestConceptSignals };
-
-            try {
-                await logLearnerAction("full_analysis_start", { language, filename });
-
-                setStatus("Step 1/3: formatting code...");
-                const formatResponse = await fetch("{% url 'format_code_local' %}", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie("csrftoken"),
-                    },
-                    body: JSON.stringify({ language, code: originalCode }),
-                });
-
-                const formatData = await formatResponse.json();
-                if (formatResponse.ok && formatData.ok) {
-                    workingCode = formatData.formatted_code || originalCode;
-                    setFormattedOutput(workingCode, originalCode);
-                    activateTab("formatted");
-                    await logLearnerAction("full_analysis_format", {
-                        language,
-                        tool: formatData.tool || "unknown",
-                        changed: Boolean(formatData.changed),
-                    });
+                if (data.changed === false) {
+                    setStatus(`No formatting changes needed (${data.tool}, ${language})`);
+                    logLearnerAction("format_no_change", { tool: data.tool, language });
                 } else {
-                    setFormattedOutput(originalCode, originalCode);
-                    setStatus(`Format skipped: ${formatData.error || "formatter unavailable"}`);
-                    await logLearnerAction("full_analysis_format_skipped", {
-                        language,
-                        reason: formatData.error || "unknown",
-                    });
+                    setStatus(`Formatted with ${data.tool} (${language})`);
+                    logLearnerAction("format_success", { tool: data.tool, language, changed: true });
                 }
-
-                setStatus("Step 2/3: parsing AST...");
-                const astResponse = await fetch("{% url 'ast_tree_local' %}", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie("csrftoken"),
-                    },
-                    body: JSON.stringify({
-                        language,
-                        filename,
-                        code: workingCode,
-                        max_depth: 6,
-                        max_children: 40,
-                    }),
-                });
-
-                const astData = await astResponse.json();
-                if (!astResponse.ok || !astData.ok) {
-                    activateTab("ast");
-                    setAstOutput(astData.error || "AST parsing failed.");
-                    clearAstTree();
-                    setStatus("Full analysis stopped: AST failed");
-                    await logLearnerAction("full_analysis_ast_failed", {
-                        language,
-                        reason: astData.error || "unknown",
-                    });
-                    return;
-                }
-
-                astSignals = astData.concept_signals || {};
-                const astView = {
-                    language: astData.language,
-                    root_type: astData.root_type,
-                    has_error: astData.has_error,
-                    sexp: astData.sexp,
-                    ast: astData.ast,
-                    concept_signals: astSignals,
-                };
-
-                activateTab("ast");
-                setAstOutput(renderAstHumanReadable(astView));
-                renderAstTree(astView.ast);
-                updateConceptPanel(astSignals);
-                latestSnapshotId = astData.snapshot_id || latestSnapshotId;
-                renderProgress(astData.progress || null);
-                await logLearnerAction("full_analysis_ast", {
-                    language,
-                    snapshot_id: latestSnapshotId,
-                });
-
-                setStatus("Step 3/3: generating AI learning diagnosis...");
-                const aiResponse = await fetch("{% url 'ai_diagnose_local' %}", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie("csrftoken"),
-                    },
-                    body: JSON.stringify({
-                        code: workingCode,
-                        language,
-                        filename,
-                        concept_signals: astSignals,
-                    }),
-                });
-
-                const aiData = await aiResponse.json();
-                if (!aiResponse.ok || !aiData.ok) {
-                    setStatus(`Analysis complete (AI skipped): ${aiData.error || "No AI response"}`);
-                    await logLearnerAction("full_analysis_ai_skipped", {
-                        language,
-                        reason: aiData.error || "unknown",
-                    });
-                    refreshToolStatus();
-                    return;
-                }
-
-                updateConceptPanel(aiData.concept_signals || astSignals);
-                latestSnapshotId = aiData.snapshot_id || latestSnapshotId;
-                renderProgress(aiData.progress || null);
-                await logLearnerAction("full_analysis_complete", {
-                    language,
-                    filename,
-                    snapshot_id: latestSnapshotId,
-                });
-                setStatus("Full analysis complete: format + AST + AI guidance updated");
-            } catch (error) {
-                setStatus(`Full analysis failed: ${String(error.message || error)}`);
-                await logLearnerAction("full_analysis_failed", {
-                    language,
-                    reason: String(error.message || error),
-                });
-            }
+                return;
+            } catch (error) { setStatus(`Format failed: ${String(error.message || error)}`); return; }
         }
 
-        async function runJavaScriptInWorker(code, stdinText) {
-            return new Promise((resolve) => {
-                const stdinLines = stdinText.split(/\r?\n/);
-                const workerSource = `
-                    self.onmessage = function(event) {
-                        var code = event.data.code;
-                        var stdinLines = event.data.stdinLines || [];
-                        var index = 0;
-                        function send(type, value) { self.postMessage({ type: type, value: value }); }
-                        var consoleMock = {
-                            log: function() { send('log', Array.from(arguments).join(' ')); },
-                            warn: function() { send('warn', Array.from(arguments).join(' ')); },
-                            error: function() { send('error', Array.from(arguments).join(' ')); }
-                        };
-                        var prompt = function() { return stdinLines[index++] || ''; };
-                        try {
-                            var fn = new Function('console', 'prompt', code);
-                            fn(consoleMock, prompt);
-                            send('done', 'Execution finished');
-                        } catch (err) {
-                            send('error', String(err && err.stack ? err.stack : err));
-                        }
+        const prettierConfig = getPrettierConfig(language);
+        if (!prettierConfig) { setStatus(`Prettier runtime/plugin missing for ${language}.`); return; }
+        try {
+            const formatted = await prettier.format(code, prettierConfig);
+            setFormattedOutput(formatted, code);
+            activateTab("formatted");
+            setStatus(`Formatted with Prettier (${language})`);
+        } catch (error) { setStatus(`Prettier error: ${String(error.message || error)}`); }
+    }
+
+    async function parseAst() {
+        const code = editor.getValue();
+        const language = languageSelect.value;
+        const filename = filenameInput.value.trim() || "untitled";
+        if (!code.trim()) { activateTab("ast"); setAstOutput("Code is empty."); return; }
+        activateTab("ast");
+        setAstOutput("Parsing AST...");
+        try {
+            const response = await fetch("{% url 'ast_tree_local' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                body: JSON.stringify({ language, filename, code, max_depth: 6, max_children: 40 }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) { setAstOutput(data.error || "AST parsing failed."); setStatus("AST parse failed"); return; }
+            const astView = { language: data.language, root_type: data.root_type, has_error: data.has_error, sexp: data.sexp, ast: data.ast, concept_signals: data.concept_signals };
+            setAstOutput(renderAstHumanReadable(astView));
+            renderAstTree(astView.ast);
+            updateConceptPanel(data.concept_signals);
+            latestSnapshotId = data.snapshot_id || null;
+            renderProgress(data.progress || null);
+            setStatus(`AST parsed (${data.language})`);
+            await logLearnerAction("ast_parse", { language: data.language, snapshot_id: latestSnapshotId });
+            refreshSidebarCredits();
+        } catch (error) { setAstOutput(String(error)); clearAstTree(); setStatus("AST parse failed"); }
+    }
+
+    async function runAiDiagnose() {
+        const code = editor.getValue();
+        const language = languageSelect.value;
+        const filename = filenameInput.value.trim() || "untitled";
+        if (!code.trim()) { setStatus("Code is empty"); return; }
+        try {
+            setStatus("Running AI diagnosis (5 credits)...");
+            const response = await fetch("{% url 'ai_diagnose_local' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                body: JSON.stringify({ code, language, filename, concept_signals: latestConceptSignals }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) { setStatus(`AI diagnose failed: ${data.error || "Unknown error"}`); return; }
+            updateConceptPanel(data.concept_signals || {});
+            latestSnapshotId = data.snapshot_id || latestSnapshotId;
+            renderProgress(data.progress || null);
+            await logLearnerAction("ai_diagnose_clicked", { language, filename });
+            setStatus("AI diagnosis updated learning guidance");
+            refreshSidebarCredits();
+        } catch (error) { setStatus(`AI diagnose failed: ${String(error.message || error)}`); }
+    }
+
+    async function runFullAnalysis() {
+        const language = languageSelect.value;
+        const filename = filenameInput.value.trim() || "untitled";
+        const originalCode = editor.getValue();
+        if (!originalCode.trim()) { setStatus("Code is empty"); return; }
+        let workingCode = originalCode;
+        let astSignals = { ...latestConceptSignals };
+        try {
+            await logLearnerAction("full_analysis_start", { language, filename });
+            setStatus("Step 1/3: formatting code...");
+            const formatResponse = await fetch("{% url 'format_code_local' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                body: JSON.stringify({ language, code: originalCode }),
+            });
+            const formatData = await formatResponse.json();
+            if (formatResponse.ok && formatData.ok) {
+                workingCode = formatData.formatted_code || originalCode;
+                setFormattedOutput(workingCode, originalCode);
+                activateTab("formatted");
+                await logLearnerAction("full_analysis_format", { language, tool: formatData.tool || "unknown", changed: Boolean(formatData.changed) });
+            } else {
+                setFormattedOutput(originalCode, originalCode);
+                setStatus(`Format skipped: ${formatData.error || "formatter unavailable"}`);
+            }
+            setStatus("Step 2/3: parsing AST...");
+            const astResponse = await fetch("{% url 'ast_tree_local' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                body: JSON.stringify({ language, filename, code: workingCode, max_depth: 6, max_children: 40 }),
+            });
+            const astData = await astResponse.json();
+            if (!astResponse.ok || !astData.ok) {
+                activateTab("ast"); setAstOutput(astData.error || "AST parsing failed."); clearAstTree();
+                setStatus("Full analysis stopped: AST failed"); return;
+            }
+            astSignals = astData.concept_signals || {};
+            const astView = { language: astData.language, root_type: astData.root_type, has_error: astData.has_error, sexp: astData.sexp, ast: astData.ast, concept_signals: astSignals };
+            activateTab("ast");
+            setAstOutput(renderAstHumanReadable(astView));
+            renderAstTree(astView.ast);
+            updateConceptPanel(astSignals);
+            latestSnapshotId = astData.snapshot_id || latestSnapshotId;
+            renderProgress(astData.progress || null);
+
+            setStatus("Step 3/3: AI learning diagnosis (5 credits)...");
+            const aiResponse = await fetch("{% url 'ai_diagnose_local' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                body: JSON.stringify({ code: workingCode, language, filename, concept_signals: astSignals }),
+            });
+            const aiData = await aiResponse.json();
+            if (!aiResponse.ok || !aiData.ok) {
+                setStatus(`Analysis complete (AI skipped): ${aiData.error || "No AI response"}`);
+                refreshToolStatus(); refreshSidebarCredits(); return;
+            }
+            updateConceptPanel(aiData.concept_signals || astSignals);
+            latestSnapshotId = aiData.snapshot_id || latestSnapshotId;
+            renderProgress(aiData.progress || null);
+            setStatus("Full analysis complete ⚡");
+            refreshSidebarCredits();
+        } catch (error) {
+            setStatus(`Full analysis failed: ${String(error.message || error)}`);
+        }
+    }
+
+    async function runJavaScriptInWorker(code, stdinText) {
+        return new Promise((resolve) => {
+            const stdinLines = stdinText.split(/\r?\n/);
+            const workerSource = `
+                self.onmessage = function(event) {
+                    var code = event.data.code;
+                    var stdinLines = event.data.stdinLines || [];
+                    var index = 0;
+                    function send(type, value) { self.postMessage({ type: type, value: value }); }
+                    var consoleMock = {
+                        log: function() { send('log', Array.from(arguments).join(' ')); },
+                        warn: function() { send('warn', Array.from(arguments).join(' ')); },
+                        error: function() { send('error', Array.from(arguments).join(' ')); }
                     };
-                `;
-
-                const blob = new Blob([workerSource], { type: "application/javascript" });
-                const worker = new Worker(URL.createObjectURL(blob));
-                const lines = [];
-                const timeoutMs = 3000;
-
-                const timer = setTimeout(() => {
-                    worker.terminate();
-                    lines.push("[timeout] JavaScript execution stopped after 3s.");
-                    resolve(lines.join("\n"));
-                }, timeoutMs);
-
-                worker.onmessage = (messageEvent) => {
-                    const data = messageEvent.data || {};
-                    if (data.type === "log" || data.type === "warn") {
-                        lines.push(String(data.value || ""));
-                    } else if (data.type === "error") {
-                        lines.push(`[error] ${String(data.value || "")}`);
-                    } else if (data.type === "done") {
-                        clearTimeout(timer);
-                        worker.terminate();
-                        resolve(lines.join("\n") || "Execution finished with no output.");
+                    var prompt = function() { return stdinLines[index++] || ''; };
+                    try {
+                        var fn = new Function('console', 'prompt', code);
+                        fn(consoleMock, prompt);
+                        send('done', 'Execution finished');
+                    } catch (err) {
+                        send('error', String(err && err.stack ? err.stack : err));
                     }
                 };
+            `;
+            const blob = new Blob([workerSource], { type: "application/javascript" });
+            const worker = new Worker(URL.createObjectURL(blob));
+            const lines = [];
+            const timer = setTimeout(() => {
+                worker.terminate();
+                lines.push("[timeout] JavaScript execution stopped after 3s.");
+                resolve(lines.join("\n"));
+            }, 3000);
+            worker.onmessage = (messageEvent) => {
+                const data = messageEvent.data || {};
+                if (data.type === "log" || data.type === "warn") lines.push(String(data.value || ""));
+                else if (data.type === "error") lines.push(`[error] ${String(data.value || "")}`);
+                else if (data.type === "done") { clearTimeout(timer); worker.terminate(); resolve(lines.join("\n") || "Execution finished with no output."); }
+            };
+            worker.onerror = (event) => { clearTimeout(timer); worker.terminate(); lines.push(`[worker error] ${event.message}`); resolve(lines.join("\n")); };
+            worker.postMessage({ code, stdinLines });
+        });
+    }
 
-                worker.onerror = (event) => {
-                    clearTimeout(timer);
-                    worker.terminate();
-                    lines.push(`[worker error] ${event.message}`);
-                    resolve(lines.join("\n"));
-                };
-
-                worker.postMessage({ code, stdinLines });
-            });
+    async function runCode() {
+        const code = editor.getValue();
+        const language = languageSelect.value;
+        const stdinText = runtimeStdin.value || "";
+        if (!code.trim()) { activateTab("runtime"); setRuntimeOutput("Code is empty."); return; }
+        activateTab("runtime");
+        setRuntimeOutput("Running...");
+        if (language === "javascript") {
+            const output = await runJavaScriptInWorker(code, stdinText);
+            setRuntimeOutput(output || "Execution finished.");
+            setStatus("JavaScript executed in browser runtime");
+            return;
         }
+        try {
+            const response = await fetch("{% url 'run_code_local' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                body: JSON.stringify({ language, code, stdin: stdinText, timeout: 5 }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) { setRuntimeOutput(data.error || data.stderr || "Execution failed."); setStatus("Run failed"); return; }
+            const finalOut = [
+                data.stdout ? `stdout:\n${data.stdout}` : "",
+                data.stderr ? `stderr:\n${data.stderr}` : "",
+                `exit code: ${data.exit_code}`,
+            ].filter(Boolean).join("\n\n");
+            setRuntimeOutput(finalOut || "Execution finished with no output.");
+            setStatus(`Code executed (${language})`);
+        } catch (error) { setRuntimeOutput(String(error)); setStatus("Run failed"); }
+    }
 
-        async function runCode() {
-            const code = editor.getValue();
-            const language = languageSelect.value;
-            const stdinText = runtimeStdin.value || "";
+    function getLanguageFromFilename(name) {
+        const i = name.lastIndexOf(".");
+        if (i === -1) return "plaintext";
+        return extensionToLanguage[name.slice(i + 1).toLowerCase()] || "plaintext";
+    }
 
-            if (!code.trim()) {
-                activateTab("runtime");
-                setRuntimeOutput("Code is empty.");
-                return;
+    function syncLanguageFromFilename() {
+        const detected = getLanguageFromFilename(filenameInput.value.trim());
+        languageSelect.value = [...languageSelect.options].some(o => o.value === detected) ? detected : "plaintext";
+        if (editor) monaco.editor.setModelLanguage(editor.getModel(), languageSelect.value);
+        editorLangEl.textContent = languageSelect.value;
+    }
+
+    function syncFilenameFromLanguage() {
+        const extension = languageToExtension[languageSelect.value];
+        if (!extension) return;
+        const current = filenameInput.value.trim();
+        let baseName = current || "main";
+        const lastDot = baseName.lastIndexOf(".");
+        if (lastDot > 0) baseName = baseName.slice(0, lastDot);
+        else if (lastDot === 0) baseName = "main";
+        filenameInput.value = `${baseName}.${extension}`;
+    }
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => activateTab(btn.getAttribute("data-tab")));
+    });
+
+    require.config({
+        paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs" }
+    });
+
+    require(["vs/editor/editor.main"], function () {
+        editor = monaco.editor.create(document.getElementById("editor"), {
+            value: "",
+            language: languageSelect.value,
+            theme: "vs-dark",
+            automaticLayout: true,
+            minimap: { enabled: true },
+            fontSize: 14,
+            tabSize: 4,
+            insertSpaces: true,
+            fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
+            padding: { top: 12 },
+            smoothScrolling: true,
+            cursorBlinking: "smooth",
+            cursorSmoothCaretAnimation: "on",
+            renderLineHighlight: "all",
+        });
+
+        languageSelect.addEventListener("change", () => {
+            syncFilenameFromLanguage();
+            monaco.editor.setModelLanguage(editor.getModel(), languageSelect.value);
+            editorLangEl.textContent = languageSelect.value;
+            setStatus(`Language set to ${languageSelect.value}`);
+            refreshToolStatus();
+        });
+
+        filenameInput.addEventListener("input", () => {
+            syncLanguageFromFilename();
+            setStatus(`Editing ${filenameInput.value.trim() || "untitled"}`);
+        });
+
+        fileInput.addEventListener("change", (event) => {
+            const selectedFile = event.target.files && event.target.files[0];
+            if (!selectedFile) return;
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                editor.setValue(String(loadEvent.target.result || ""));
+                filenameInput.value = selectedFile.name;
+                syncLanguageFromFilename();
+                setStatus(`Loaded ${selectedFile.name} (${selectedFile.size} bytes)`);
+            };
+            reader.onerror = () => setStatus("Failed to read file");
+            reader.readAsText(selectedFile);
+            event.target.value = "";
+        });
+
+        newFileBtn.addEventListener("click", () => { filenameInput.value = "untitled.py"; editor.setValue(""); syncLanguageFromFilename(); setStatus("New file created"); });
+        clearBtn.addEventListener("click", () => { editor.setValue(""); setStatus("Editor cleared"); });
+        runBtn.addEventListener("click", runCode);
+        formatBtn.addEventListener("click", formatWithPrettier);
+        astBtn.addEventListener("click", parseAst);
+        aiBtn.addEventListener("click", runAiDiagnose);
+        applyFormattedBtn.addEventListener("click", () => {
+            if (!latestFormattedCode) { setStatus("No formatted output to apply"); return; }
+            editor.setValue(latestFormattedCode);
+            setStatus("Formatted output applied to editor");
+            logLearnerAction("format_applied", { language: languageSelect.value });
+        });
+        clearFormattedBtn.addEventListener("click", () => { setFormattedOutput("", ""); setStatus("Formatted output cleared"); });
+        analyzeBtn.addEventListener("click", runFullAnalysis);
+
+        themeSelect.addEventListener("change", async () => {
+            const selectedTheme = themeSelect.value;
+            try {
+                await ensureThemeLoaded(selectedTheme);
+                monaco.editor.setTheme(selectedTheme);
+                setStatus(`Theme set to ${selectedTheme}`);
+            } catch (error) {
+                monaco.editor.setTheme("vs-dark");
+                themeSelect.value = "vs-dark";
+                setStatus(`Theme load failed: ${selectedTheme}`);
             }
+        });
 
-            activateTab("runtime");
-            setRuntimeOutput("Running...");
+        syncLanguageFromFilename();
+        refreshProgress();
+        refreshToolStatus();
+        setStatus("Ready");
 
-            if (language === "javascript") {
-                const output = await runJavaScriptInWorker(code, stdinText);
-                setRuntimeOutput(output || "Execution finished.");
-                setStatus("JavaScript executed in browser runtime");
-                return;
+        // Diagnosis panel toggle
+        const editorMain = document.getElementById('editorMain');
+        const panelToggle = document.getElementById('panelToggle');
+        const diagPanel = document.querySelector('.diagnosis-panel');
+        const panelSaved = localStorage.getItem('diagPanelHidden');
+        if (panelSaved === 'true') {
+            editorMain.classList.remove('with-panel');
+            diagPanel.style.display = 'none';
+            panelToggle.textContent = '▶';
+        }
+        panelToggle.addEventListener('click', () => {
+            const isVisible = editorMain.classList.contains('with-panel');
+            if (isVisible) {
+                editorMain.classList.remove('with-panel');
+                diagPanel.style.display = 'none';
+                panelToggle.textContent = '▶';
+                localStorage.setItem('diagPanelHidden', 'true');
+            } else {
+                editorMain.classList.add('with-panel');
+                diagPanel.style.display = '';
+                panelToggle.textContent = '◀';
+                localStorage.setItem('diagPanelHidden', 'false');
             }
+            // Let Monaco recalculate size
+            setTimeout(() => editor.layout(), 100);
+        });
+
+        // ===== MERMAID FLOWCHART =====
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            securityLevel: 'loose',
+            themeVariables: {
+                darkMode: true,
+                background: '#0f1423',
+                primaryColor: '#5b8fd9',
+                primaryTextColor: '#e2e7ef',
+                primaryBorderColor: '#5b8fd9',
+                lineColor: '#5a6478',
+                secondaryColor: '#9b7bd4',
+                tertiaryColor: '#3baa8a',
+            }
+        });
+
+        document.getElementById('flowchartBtn').addEventListener('click', async () => {
+            const code = editor.getValue().trim();
+            if (!code) { setStatus('Write some code first.'); return; }
+            const lang = languageSelect.value;
+            const placeholder = document.getElementById('flowchartPlaceholder');
+            const loading = document.getElementById('flowchartLoading');
+            const output = document.getElementById('mermaidOutput');
+
+            // Switch to flowchart tab
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            document.querySelector('[data-tab="flowchart"]').classList.add('active');
+            document.getElementById('tab-flowchart').classList.remove('hidden');
+
+            placeholder.style.display = 'none';
+            loading.style.display = '';
+            output.style.display = 'none';
+            setStatus('Generating flowchart...');
 
             try {
-                const response = await fetch("{% url 'run_code_local' %}", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie("csrftoken"),
-                    },
-                    body: JSON.stringify({
-                        language,
-                        code,
-                        stdin: stdinText,
-                        timeout: 5,
-                    }),
+                const res = await fetch("{% url 'ast_flowchart_api' %}", {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({code, language: lang, concept_signals: latestConceptSignals || {}}),
                 });
-
-                const data = await response.json();
-                if (!response.ok || !data.ok) {
-                    setRuntimeOutput(data.error || data.stderr || "Execution failed.");
-                    setStatus("Run failed");
+                const data = await res.json();
+                if (!data.ok) {
+                    loading.style.display = 'none';
+                    placeholder.style.display = '';
+                    placeholder.textContent = data.error || 'Flowchart generation failed.';
+                    setStatus('Flowchart error');
                     return;
                 }
 
-                const finalOut = [
-                    data.stdout ? `stdout:\n${data.stdout}` : "",
-                    data.stderr ? `stderr:\n${data.stderr}` : "",
-                    `exit code: ${data.exit_code}`,
-                ].filter(Boolean).join("\n\n");
+                loading.style.display = 'none';
+                output.style.display = '';
+                output.innerHTML = '';
 
-                setRuntimeOutput(finalOut || "Execution finished with no output.");
-                setStatus(`Code executed (${language})`);
-            } catch (error) {
-                setRuntimeOutput(String(error));
-                setStatus("Run failed");
+                const id = 'mermaid-' + Date.now();
+                const {svg} = await mermaid.render(id, data.mermaid_code);
+                output.innerHTML = svg;
+
+                if (data.credits_remaining !== undefined) {
+                    const credEl = document.querySelector('.credits-value');
+                    if (credEl) credEl.textContent = data.credits_remaining;
+                }
+                setStatus('Flowchart generated');
+            } catch (e) {
+                loading.style.display = 'none';
+                placeholder.style.display = '';
+                placeholder.textContent = 'Flowchart generation failed: ' + e.message;
+                setStatus('Flowchart error');
             }
+        });
+
+        // ===== NOTES SYSTEM =====
+        let currentNoteId = null;
+
+        async function loadNotes() {
+            try {
+                const res = await fetch("{% url 'notes_api' %}");
+                const data = await res.json();
+                if (!data.ok) return;
+                renderNotesList(data.notes);
+            } catch (e) { console.error('Notes load failed', e); }
         }
 
-        function getLanguageFromFilename(name) {
-            const i = name.lastIndexOf(".");
-            if (i === -1) return "plaintext";
-            return extensionToLanguage[name.slice(i + 1).toLowerCase()] || "plaintext";
-        }
-
-        function syncLanguageFromFilename() {
-            const detected = getLanguageFromFilename(filenameInput.value.trim());
-            languageSelect.value = [...languageSelect.options].some(o => o.value === detected) ? detected : "plaintext";
-            if (editor) monaco.editor.setModelLanguage(editor.getModel(), languageSelect.value);
-        }
-
-        function syncFilenameFromLanguage() {
-            const extension = languageToExtension[languageSelect.value];
-            if (!extension) {
+        function renderNotesList(notes) {
+            const list = document.getElementById('notesList');
+            if (!notes || notes.length === 0) {
+                list.innerHTML = '<div style="color:var(--text-tertiary);font-size:12px;text-align:center;padding:20px 0;">Your saved notes will appear here.</div>';
                 return;
             }
+            list.innerHTML = notes.map(n => `
+                <div class="note-card" data-id="${n.id}" style="background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px;cursor:pointer;transition:all 0.2s;">
+                    <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.title}</div>
+                    <div style="font-size:10px;color:var(--text-tertiary);">${n.filename || 'No file'} ${n.tags ? '· ' + n.tags : ''}</div>
+                    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                        <span style="font-size:10px;color:var(--text-tertiary);">${new Date(n.updated_at).toLocaleDateString()}</span>
+                        <button class="delete-note-btn" data-id="${n.id}" style="background:none;border:none;color:var(--accent-red);cursor:pointer;font-size:10px;padding:0;">Delete</button>
+                    </div>
+                </div>
+            `).join('');
 
-            const current = filenameInput.value.trim();
-            let baseName = current || "main";
-            const lastDot = baseName.lastIndexOf(".");
+            list.querySelectorAll('.note-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('delete-note-btn')) return;
+                    const note = notes.find(n => n.id == card.dataset.id);
+                    if (note) {
+                        currentNoteId = note.id;
+                        document.getElementById('noteTitle').value = note.title;
+                        document.getElementById('noteContent').value = note.content;
+                        document.getElementById('noteTags').value = note.tags || '';
+                    }
+                });
+            });
 
-            if (lastDot > 0) {
-                baseName = baseName.slice(0, lastDot);
-            } else if (lastDot === 0) {
-                baseName = "main";
-            }
-
-            filenameInput.value = `${baseName}.${extension}`;
+            list.querySelectorAll('.delete-note-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const noteId = btn.dataset.id;
+                    try {
+                        await fetch("{% url 'notes_api' %}", {
+                            method: 'DELETE',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({id: parseInt(noteId)}),
+                        });
+                        if (currentNoteId == noteId) {
+                            currentNoteId = null;
+                            document.getElementById('noteTitle').value = '';
+                            document.getElementById('noteContent').value = '';
+                            document.getElementById('noteTags').value = '';
+                        }
+                        loadNotes();
+                    } catch (e) { console.error('Delete failed', e); }
+                });
+            });
         }
 
-        document.querySelectorAll(".tab-buttons button").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const key = btn.getAttribute("data-tab");
-                activateTab(key);
-            });
-        });
+        document.getElementById('saveNoteBtn').addEventListener('click', async () => {
+            const title = document.getElementById('noteTitle').value.trim() || 'Untitled Note';
+            const content = document.getElementById('noteContent').value;
+            const tags = document.getElementById('noteTags').value.trim();
+            const filename = filenameInput.value.trim();
 
-        require.config({
-            paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs" }
-        });
+            try {
+                const body = {title, content, tags, filename};
+                if (currentNoteId) body.id = currentNoteId;
+                if (latestSnapshotId) body.snapshot_id = latestSnapshotId;
 
-        require(["vs/editor/editor.main"], function () {
-            editor = monaco.editor.create(document.getElementById("editor"), {
-                value: "",
-                language: languageSelect.value,
-                theme: "vs-dark",
-                automaticLayout: true,
-                minimap: { enabled: true },
-                fontSize: 14,
-                tabSize: 4,
-                insertSpaces: true
-            });
-
-            languageSelect.addEventListener("change", () => {
-                syncFilenameFromLanguage();
-                monaco.editor.setModelLanguage(editor.getModel(), languageSelect.value);
-                setStatus(`Language set to ${languageSelect.value} (${filenameInput.value})`);
-                refreshToolStatus();
-            });
-
-            filenameInput.addEventListener("input", () => {
-                syncLanguageFromFilename();
-                setStatus(`Editing ${filenameInput.value.trim() || "untitled"}`);
-            });
-
-            fileInput.addEventListener("change", (event) => {
-                const selectedFile = event.target.files && event.target.files[0];
-                if (!selectedFile) return;
-                const reader = new FileReader();
-                reader.onload = (loadEvent) => {
-                    editor.setValue(String(loadEvent.target.result || ""));
-                    filenameInput.value = selectedFile.name;
-                    syncLanguageFromFilename();
-                    setStatus(`Loaded ${selectedFile.name} (${selectedFile.size} bytes)`);
-                };
-                reader.onerror = () => setStatus("Failed to read file");
-                reader.readAsText(selectedFile);
-                event.target.value = "";
-            });
-
-            newFileBtn.addEventListener("click", () => {
-                filenameInput.value = "untitled.py";
-                editor.setValue("");
-                syncLanguageFromFilename();
-                setStatus("New file created");
-            });
-
-            clearBtn.addEventListener("click", () => {
-                editor.setValue("");
-                setStatus("Editor cleared");
-            });
-
-            runBtn.addEventListener("click", runCode);
-            formatBtn.addEventListener("click", formatWithPrettier);
-            astBtn.addEventListener("click", parseAst);
-            aiBtn.addEventListener("click", runAiDiagnose);
-
-            applyFormattedBtn.addEventListener("click", () => {
-                if (!latestFormattedCode) {
-                    setStatus("No formatted output to apply");
-                    return;
+                const res = await fetch("{% url 'notes_api' %}", {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    currentNoteId = data.note.id;
+                    setStatus('Note saved');
+                    loadNotes();
+                } else {
+                    setStatus('Failed to save note');
                 }
-                editor.setValue(latestFormattedCode);
-                setStatus("Formatted output applied to editor");
-                logLearnerAction("format_applied", { language: languageSelect.value });
-            });
-
-            clearFormattedBtn.addEventListener("click", () => {
-                setFormattedOutput("", "");
-                setStatus("Formatted output cleared");
-                logLearnerAction("format_cleared", { language: languageSelect.value });
-            });
-
-            analyzeBtn.addEventListener("click", runFullAnalysis);
-
-            themeSelect.addEventListener("change", async () => {
-                const selectedTheme = themeSelect.value;
-                try {
-                    await ensureThemeLoaded(selectedTheme);
-                    monaco.editor.setTheme(selectedTheme);
-                    setStatus(`Theme set to ${selectedTheme}`);
-                } catch (error) {
-                    monaco.editor.setTheme("vs-dark");
-                    themeSelect.value = "vs-dark";
-                    setStatus(`Theme load failed: ${selectedTheme}`);
-                }
-            });
-
-            syncLanguageFromFilename();
-            refreshProgress();
-            refreshToolStatus();
-            setStatus("Ready");
+            } catch (e) {
+                setStatus('Note save error');
+            }
         });
-    </script>
-</body>
 
-</html>
+        loadNotes();
+
+    });
+</script>
+{% endblock %}

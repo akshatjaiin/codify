@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .activity-card {
+        padding: 24px;
+    }
+
+    .activity-card h3 {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-top: 6px;
+        flex-shrink: 0;
+    }
+
+    .activity-dot.strong { background: var(--accent-green); box-shadow: 0 0 4px rgba(59,170,138,0.2); }
+    .activity-dot.moderate { background: var(--accent-blue); box-shadow: 0 0 4px rgba(91,143,217,0.2); }
+    .activity-dot.developing { background: var(--accent-amber); box-shadow: 0 0 4px rgba(212,160,65,0.2); }
+    .activity-dot.weak { background: var(--accent-red); box-shadow: 0 0 4px rgba(212,92,92,0.2); }
+
+    .activity-text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .activity-title {
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .activity-meta {
+        font-size: 12px;
+        color: var(--text-tertiary);
+        margin-top: 3px;
+    }
+
+    .activity-badge {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
+    }
+
+    .badge-strong { background: rgba(16,185,129,0.12); color: var(--accent-green); }
+    .badge-moderate { background: rgba(59,130,246,0.12); color: var(--accent-blue); }
+    .badge-developing { background: rgba(245,158,11,0.12); color: var(--accent-amber); }
+    .badge-weak { background: rgba(239,68,68,0.12); color: var(--accent-red); }
+
+    .concept-bar-container {
+        margin-bottom: 14px;
+    }
+
+    .concept-bar-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    .concept-bar-label span:first-child {
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .concept-bar-label span:last-child {
+        color: var(--text-tertiary);
+    }
+
+    .concept-bar-track {
+        height: 8px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .concept-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 1s ease;
+        min-width: 4px;
+    }
+
+    .bar-blue { background: var(--accent-blue); }
+    .bar-purple { background: var(--accent-purple); }
+    .bar-green { background: var(--accent-green); }
+    .bar-amber { background: var(--accent-amber); }
+    .bar-pink { background: var(--accent-pink); }
+
+    .quick-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-tertiary);
+    }
+
+    .empty-state svg {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 12px;
+        opacity: 0.3;
+    }
+
+    @media (max-width: 1200px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 id="greeting">Welcome back</h1>
+        <div class="header-subtitle">Here's a snapshot of your learning journey</div>
+    </div>
+    <div class="quick-actions">
+        <a href="{% url 'editor_page' %}" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Open Editor
+        </a>
+    </div>
+</div>
+
+<div class="page-body">
+    <div class="stat-grid" id="statsGrid">
+        <div class="stat-card glass-card blue animate-in">
+            <div class="stat-icon">📊</div>
+            <div class="stat-value" id="totalAnalyses">-</div>
+            <div class="stat-label">Analyses</div>
+        </div>
+        <div class="stat-card glass-card purple animate-in">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-value" id="avgConfidence">-</div>
+            <div class="stat-label">Confidence</div>
+        </div>
+        <div class="stat-card glass-card green animate-in">
+            <div class="stat-icon">💎</div>
+            <div class="stat-value" id="creditsBalance">-</div>
+            <div class="stat-label">Credits</div>
+        </div>
+        <div class="stat-card glass-card amber animate-in">
+            <div class="stat-icon">📚</div>
+            <div class="stat-value" id="conceptsLearned">-</div>
+            <div class="stat-label">Concepts</div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="glass-card activity-card animate-in">
+            <h3>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Recent Activity
+            </h3>
+            <div id="activityList">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    <p>No analyses yet. Open the editor to analyze your first file.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card activity-card animate-in">
+            <h3>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Concept Distribution
+            </h3>
+            <div id="conceptBars">
+                <div class="empty-state">
+                    <p>Concept patterns will appear here after your first analysis.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const barColors = ['bar-blue', 'bar-purple', 'bar-green', 'bar-amber', 'bar-pink'];
+
+    function confidenceClass(label) {
+        const l = (label || '').toLowerCase();
+        if (l.includes('strong')) return 'strong';
+        if (l.includes('moderate')) return 'moderate';
+        if (l.includes('developing')) return 'developing';
+        return 'weak';
+    }
+
+    function badgeClass(label) {
+        return 'badge-' + confidenceClass(label);
+    }
+
+    function relativeTime(iso) {
+        const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+        if (diff < 60) return 'just now';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+        return Math.floor(diff / 86400) + 'd ago';
+    }
+
+    async function loadDashboard() {
+        try {
+            const res = await fetch("{% url 'dashboard_stats_api' %}");
+            const data = await res.json();
+            if (!data.ok) return;
+
+            document.getElementById('totalAnalyses').textContent = data.total_analyses || 0;
+            document.getElementById('avgConfidence').textContent = (data.average_confidence || 0) + '%';
+            document.getElementById('creditsBalance').textContent = data.credits || 0;
+            document.getElementById('sidebarCredits').textContent = data.credits || 0;
+
+            const knowledgeCount = (data.knowledge || []).length;
+            document.getElementById('conceptsLearned').textContent = knowledgeCount;
+
+            // Recent Activity
+            const activity = data.recent_activity || [];
+            const actList = document.getElementById('activityList');
+            if (activity.length > 0) {
+                actList.innerHTML = activity.map(item => `
+                    <div class="activity-item">
+                        <div class="activity-dot ${confidenceClass(item.confidence_label)}"></div>
+                        <div class="activity-text">
+                            <div class="activity-title">${item.filename || 'untitled'}</div>
+                            <div class="activity-meta">${item.language || 'unknown'} · ${item.concept_tag || '-'} · ${relativeTime(item.created_at)}</div>
+                        </div>
+                        <span class="activity-badge ${badgeClass(item.confidence_label)}">${item.confidence_score}%</span>
+                    </div>
+                `).join('');
+            }
+
+            // Concept Bars
+            const concepts = data.concept_counts || {};
+            const conceptDiv = document.getElementById('conceptBars');
+            const entries = Object.entries(concepts);
+            if (entries.length > 0) {
+                const maxVal = Math.max(...entries.map(([, v]) => v));
+                conceptDiv.innerHTML = entries.map(([tag, count], i) => `
+                    <div class="concept-bar-container">
+                        <div class="concept-bar-label">
+                            <span>${tag}</span>
+                            <span>${count} occurrence${count > 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="concept-bar-track">
+                            <div class="concept-bar-fill ${barColors[i % barColors.length]}" style="width: ${(count / maxVal * 100)}%"></div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {
+            console.error('Dashboard load failed', e);
+        }
+    }
+
+    // Time-based greeting
+    const hour = new Date().getHours();
+    const greetEl = document.getElementById('greeting');
+    if (hour < 12) greetEl.textContent = 'Good morning';
+    else if (hour < 17) greetEl.textContent = 'Good afternoon';
+    else greetEl.textContent = 'Good evening';
+
+    loadDashboard();
+</script>
+{% endblock %}
