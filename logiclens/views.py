@@ -12,7 +12,7 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
-from .ai_client import diagnose_with_inception, generate_mermaid_flowchart, get_inception_api_key
+from .ai_client import diagnose_with_inception, generate_mermaid_flowchart, get_inception_api_key, generate_youtube_queries
 from .models import DiagnosticSnapshot, LearnerAction, UserProfile, KnowledgeEntry, CreditTransaction, Note
 
 try:
@@ -598,6 +598,47 @@ def _build_progress_payload(language="", limit=20):
     }
 
 
+def _analyze_ast_complexity(node, code_bytes):
+    """Analyze AST to find cognitive complexity hotspots."""
+    hotspots = []
+    
+    def traverse(n):
+        if n.type in ['function_definition', 'method_definition', 'class_definition', 'arrow_function']:
+            complexity = 1
+            name = "anonymous"
+            for child in n.children:
+                if child.type == 'identifier':
+                    name = code_bytes[child.start_byte:child.end_byte].decode('utf-8', errors='ignore')
+                    break
+            
+            def count_branches(inner_node):
+                c = 0
+                if inner_node.type in ['if_statement', 'for_statement', 'while_statement', 'catch_clause', 'switch_statement', 'elif_clause', 'else_clause']:
+                    c += 1
+                for child in inner_node.children:
+                    c += count_branches(child)
+                return c
+            
+            branches = count_branches(n)
+            complexity += branches
+            
+            if complexity > 2:
+                hotspots.append({
+                    "name": name,
+                    "type": n.type,
+                    "line": n.start_point[0] + 1,
+                    "complexity": complexity,
+                    "status": "high" if complexity >= 10 else ("medium" if complexity >= 5 else "low")
+                })
+                
+        for child in n.children:
+            traverse(child)
+            
+    traverse(node)
+    hotspots.sort(key=lambda x: x['complexity'], reverse=True)
+    return hotspots
+
+
 # --- API Endpoints ---
 
 @csrf_exempt
@@ -644,7 +685,10 @@ def ast_tree_local(request):
         tree = parser.parse(code_bytes)
         root = tree.root_node
 
+        
+        hotspots = _analyze_ast_complexity(root, code_bytes)
         ast_data = _serialize_ast_node(
+
             root,
             code_bytes,
             depth=0,
@@ -675,6 +719,7 @@ def ast_tree_local(request):
                 "root_type": root.type,
                 "has_error": bool(root.has_error),
                 "sexp": sexp,
+                "hotspots": hotspots,
                 "ast": ast_data,
                 "concept_signals": concept_signals,
                 "snapshot_id": snapshot.id,
@@ -1282,12 +1327,55 @@ def youtube_recommend_api(request):
 
     if not weak_concepts:
         weak_concepts = ["general-structure"]
-
+        
+    # NEW logic: Generate AI Queries directly
+    ai_resp = generate_youtube_queries(concepts=weak_concepts)
+    queries = ai_resp.get("queries", []) if ai_resp.get("ok") else [f"{c} programming tutorial" for c in weak_concepts][:5]
+    if not queries:
+        queries = [f"{c} programming tutorial" for c in weak_concepts][:5]
+        
     recommendations = []
-    for concept in weak_concepts:
-        videos = YOUTUBE_RECOMMENDATIONS.get(concept, YOUTUBE_RECOMMENDATIONS.get("general-structure", []))
-        for video in videos:
-            recommendations.append({**video, "concept": concept})
+    
+    api_key = _read_youtube_api_key()
+    if api_key:
+        import requests as http_requests
+        # We have an API key, let's fetch the top video for each query
+        for q in queries:
+            try:
+                params = {
+                    "part": "snippet",
+                    "q": q,
+                    "type": "video",
+                    "maxResults": 1,
+                    "videoCategoryId": "27",
+                    "key": api_key,
+                }
+                resp = http_requests.get("https://www.googleapis.com/youtube/v3/search", params=params, timeout=5)
+                data = resp.json()
+                if resp.status_code < 400 and data.get("items"):
+                    item = data["items"][0]
+                    snippet = item.get("snippet", {})
+                    video_id = item.get("id", {}).get("videoId", "")
+                    recommendations.append({
+                        "title": snippet.get("title", ""),
+                        "url": f"https://www.youtube.com/watch?v={video_id}",
+                        "channel": snippet.get("channelTitle", ""),
+                        "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
+                        "concept": q
+                    })
+            except Exception:
+                pass
+    
+    # Fallback if no API key or API limits
+    if not recommendations:
+        for q in queries:
+            recommendations.append({
+                "title": f"Suggested Search: {q}",
+                "url": f"https://www.youtube.com/results?search_query={q.replace(' ', '+')}",
+                "channel": "YouTube Search",
+                "thumbnail": "",
+                "concept": q
+            })
 
     return JsonResponse({"ok": True, "recommendations": recommendations, "weak_concepts": weak_concepts})
 

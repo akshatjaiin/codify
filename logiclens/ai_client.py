@@ -206,7 +206,8 @@ def generate_mermaid_flowchart(
                     "You are a code visualization expert. You convert source code into clear, "
                     "educational Mermaid flowchart diagrams. Use descriptive node labels. "
                     "Use different shapes: stadiums for start/end, rectangles for operations, "
-                    "diamonds for decisions, parallelograms for I/O."
+                    "diamonds for decisions, parallelograms for I/O. "
+                    "CRITICAL: Do NOT use quotes (\", '), parentheses, brackets, or braces inside the node labels. Keep node text clean and simple to prevent Mermaid syntax errors (e.g., use A[print hi] instead of A[print(\"hi\")])."
                 ),
             },
             {"role": "user", "content": prompt},
@@ -247,4 +248,96 @@ def generate_mermaid_flowchart(
     if not mermaid_code.strip():
         return {"ok": False, "error": "AI returned empty flowchart."}
 
-    return {"ok": True, "mermaid_code": mermaid_code}
+    # Sanitize the Mermaid code to prevent parse errors.
+    # The AI sometimes ignores instructions and includes characters like (), "", or {} inside node labels [like this].
+    # Mermaid crashes if it sees unquoted special characters inside brackets.
+    import re
+    def sanitize_label(match):
+        content = match.group(1)
+        # Remove problematic characters from the label text
+        clean = re.sub(r'["\'\(\)\{\}\[\]]', '', content)
+        return f"[{clean}]"
+
+    # Find everything inside [ ] and sanitize it
+    sanitized_code = re.sub(r'\[(.*?)\]', sanitize_label, mermaid_code)
+
+    return {"ok": True, "mermaid_code": sanitized_code}
+
+
+YOUTUBE_QUERY_SCHEMA = {
+    "name": "YouTubeSearchQueries",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "queries": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "A list of 3 to 5 highly specific YouTube search queries."
+            }
+        },
+        "required": ["queries"]
+    }
+}
+
+def generate_youtube_queries(concepts: list[str], model: str = "mercury-2", timeout_seconds: int = 15) -> dict[str, Any]:
+    """Ask Inception AI to generate targeted YouTube search queries based on weak concepts."""
+    api_key = get_inception_api_key()
+    if not api_key:
+        return {"ok": False, "error": "INCEPTION_API_KEY is not set."}
+
+    if not concepts:
+        concepts = ["general programming structure"]
+
+    prompt = {
+        "task": (
+            "Generate 3 to 5 highly specific, high-quality YouTube search queries to help "
+            "a student learn the following coding concepts. "
+            "The queries should be phrased exactly as someone would type them into YouTube to find the best tutorials."
+        ),
+        "concepts": concepts
+    }
+
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are an expert programming educator who knows exactly how to search YouTube for the best coding tutorials."
+            },
+            {"role": "user", "content": json.dumps(prompt)}
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": YOUTUBE_QUERY_SCHEMA
+        },
+        "stream": False
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+
+    try:
+        response = requests.post(INCEPTION_URL, headers=headers, json=payload, timeout=timeout_seconds)
+        body = response.json()
+    except requests.RequestException as error:
+        return {"ok": False, "error": f"AI request failed: {error}"}
+    except ValueError:
+        return {"ok": False, "error": "AI service returned non-JSON response."}
+
+    if response.status_code >= 400:
+        return {
+            "ok": False,
+            "error": body.get("error", {}).get("message") if isinstance(body, dict) else "AI service error.",
+        }
+
+    try:
+        content = body["choices"][0]["message"]["content"]
+        parsed = json.loads(content) if isinstance(content, str) else content
+        queries = parsed.get("queries", [])
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        return {"ok": False, "error": "Could not parse AI queries payload."}
+
+    return {"ok": True, "queries": queries}

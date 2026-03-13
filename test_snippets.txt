@@ -1,0 +1,82 @@
+# ====== CODIFY TEST SNIPPETS ======
+# Copy and paste any of these blocks into the LogicLens editor to test different features!
+
+# --- 1. Simple Function (Good for basic Flowchart & AST) ---
+def greet_user(name, is_premium):
+    if is_premium:
+        print(f"Welcome back to Premium, {name}!")
+        return True
+    
+    print(f"Hello {name}, consider upgrading!")
+    return False
+
+# --- 2. Loop & Math (Good for AST Complexity tracking) ---
+def sum_even_numbers(max_limit):
+    total = 0
+    for i in range(max_limit):
+        if i % 2 == 0:
+            total += i
+    return total
+
+# --- 3. High Cognitive Complexity (Best for testing "Complexity" Tab Hotspots) ---
+def process_data(data_list, skip_errors=True):
+    results = []
+    
+    if not data_list:
+        return results
+        
+    for item in data_list:
+        if item is None:
+            if not skip_errors:
+                print("Error: None item found")
+                break
+        else:
+            if type(item) == list:
+                for subitem in item:
+                    if subitem > 0:
+                        results.append(subitem * 2)
+            elif type(item) == int:
+                if item > 0:
+                    results.append(item * 2)
+                    
+    return results
+
+# --- 4. Recursive Function (Good for Flowcharts) ---
+def fibonacci(n):
+    if n <= 1:
+        return n
+    else:
+        return fibonacci(n-1) + fibonacci(n-2)
+
+# --- 5. Class definition (To test if AST can handle OOP) ---
+class BankAccount:
+    def __init__(self, owner, balance=0):
+        self.owner = owner
+        self.balance = balance
+        
+    def deposit(self, amount):
+        if amount > 0:
+            self.balance += amount
+            print(f"Deposited {amount}")
+            return True
+        return False
+        
+    def withdraw(self, amount):
+        if 0 < amount <= self.balance:
+            self.balance -= amount
+            print(f"Withdrew {amount}")
+            return True
+        print("Insufficient funds")
+        return False
+
+# --- 6. Sorting Algorithm (Classic logic flow) ---
+def bubble_sort(arr):
+    n = len(arr)
+    # Traverse through all array elements
+    for i in range(n):
+        # Last i elements are already in place
+        for j in range(0, n-i-1):
+            if arr[j] > arr[j+1]:
+                # Swap if the element found is greater
+                arr[j], arr[j+1] = arr[j+1], arr[j]
+    return arr

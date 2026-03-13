@@ -18,7 +18,7 @@
         gap: 4px;
         align-items: center;
         padding: 6px 10px;
-        background: rgba(255,255,255,0.02);
+        background: rgba(255, 255, 255, 0.02);
         border-bottom: 1px solid var(--border-subtle);
         overflow-x: auto;
     }
@@ -38,7 +38,7 @@
     }
 
     .toolbar-input {
-        background: rgba(255,255,255,0.04);
+        background: rgba(255, 255, 255, 0.04);
         color: var(--text-primary);
         border: 1px solid var(--border-subtle);
         border-radius: 6px;
@@ -52,11 +52,11 @@
     .toolbar-input:focus {
         outline: none;
         border-color: var(--accent-blue);
-        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
     .toolbar-select {
-        background: rgba(255,255,255,0.04);
+        background: rgba(255, 255, 255, 0.04);
         color: var(--text-primary);
         border: 1px solid var(--border-subtle);
         border-radius: 6px;
@@ -82,14 +82,14 @@
         font-family: 'Inter', sans-serif;
         cursor: pointer;
         border: 1px solid var(--border-subtle);
-        background: rgba(255,255,255,0.04);
+        background: rgba(255, 255, 255, 0.04);
         color: var(--text-secondary);
         transition: all 0.2s;
         white-space: nowrap;
     }
 
     .toolbar-btn:hover {
-        background: rgba(255,255,255,0.08);
+        background: rgba(255, 255, 255, 0.08);
         color: var(--text-primary);
         border-color: var(--border-medium);
     }
@@ -98,24 +98,24 @@
         background: var(--accent-blue);
         color: white;
         border: none;
-        box-shadow: 0 1px 4px rgba(91,143,217,0.2);
+        box-shadow: 0 1px 4px rgba(91, 143, 217, 0.2);
     }
 
     .toolbar-btn.primary:hover {
         transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(91,143,217,0.25);
+        box-shadow: 0 2px 8px rgba(91, 143, 217, 0.25);
     }
 
     .toolbar-btn.analyze {
         background: var(--accent-purple);
         color: white;
         border: none;
-        box-shadow: 0 1px 4px rgba(155,123,212,0.2);
+        box-shadow: 0 1px 4px rgba(155, 123, 212, 0.2);
     }
 
     .toolbar-btn.analyze:hover {
         transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(155,123,212,0.25);
+        box-shadow: 0 2px 8px rgba(155, 123, 212, 0.25);
     }
 
     .toolbar-btn.ai-btn {
@@ -126,7 +126,7 @@
 
     .toolbar-btn .credit-badge {
         font-size: 10px;
-        background: rgba(255,255,255,0.2);
+        background: rgba(255, 255, 255, 0.2);
         padding: 2px 6px;
         border-radius: 10px;
     }
@@ -135,7 +135,9 @@
         cursor: pointer;
     }
 
-    .toolbar-upload input { display: none; }
+    .toolbar-upload input {
+        display: none;
+    }
 
     .toolbar-status {
         margin-left: auto;
@@ -164,7 +166,7 @@
     }
 
     .editor-main.with-panel {
-        grid-template-columns: 1fr 320px;
+        grid-template-columns: 1fr minmax(320px, 30%);
     }
 
     .editor-pane {
@@ -185,12 +187,12 @@
         text-transform: uppercase;
         letter-spacing: 0.8px;
         border-bottom: 1px solid var(--border-subtle);
-        background: rgba(255,255,255,0.01);
+        background: rgba(255, 255, 255, 0.01);
     }
 
     .panel-toggle-btn {
         border: none;
-        background: rgba(255,255,255,0.06);
+        background: rgba(255, 255, 255, 0.06);
         color: var(--text-secondary);
         width: 24px;
         height: 24px;
@@ -204,7 +206,7 @@
     }
 
     .panel-toggle-btn:hover {
-        background: rgba(255,255,255,0.12);
+        background: rgba(255, 255, 255, 0.12);
         color: var(--text-primary);
     }
 
@@ -230,7 +232,7 @@
     }
 
     .diag-card {
-        background: rgba(255,255,255,0.02);
+        background: rgba(255, 255, 255, 0.02);
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-sm);
         padding: 10px;
@@ -239,7 +241,7 @@
 
     .diag-card:hover {
         border-color: var(--border-medium);
-        background: rgba(255,255,255,0.04);
+        background: rgba(255, 255, 255, 0.04);
     }
 
     .diag-card h4 {
@@ -261,8 +263,8 @@
     }
 
     .diag-card.highlight {
-        border-color: rgba(59,130,246,0.2);
-        background: rgba(59,130,246,0.04);
+        border-color: rgba(59, 130, 246, 0.2);
+        background: rgba(59, 130, 246, 0.04);
     }
 
     .confidence-ring {
@@ -279,7 +281,7 @@
 
     .confidence-ring .ring-bg {
         fill: none;
-        stroke: rgba(255,255,255,0.06);
+        stroke: rgba(255, 255, 255, 0.06);
         stroke-width: 6;
     }
 
@@ -334,7 +336,7 @@
         display: flex;
         gap: 0;
         border-bottom: 1px solid var(--border-subtle);
-        background: rgba(255,255,255,0.015);
+        background: rgba(255, 255, 255, 0.015);
         overflow-x: auto;
     }
 
@@ -354,7 +356,7 @@
 
     .tab-btn:hover {
         color: var(--text-secondary);
-        background: rgba(255,255,255,0.02);
+        background: rgba(255, 255, 255, 0.02);
     }
 
     .tab-btn.active {
@@ -402,7 +404,7 @@
         height: 100%;
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-sm);
-        background: rgba(255,255,255,0.02);
+        background: rgba(255, 255, 255, 0.02);
         color: var(--text-primary);
         padding: 10px;
         font-size: 12px;
@@ -438,7 +440,7 @@
         height: 100%;
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-sm);
-        background: rgba(255,255,255,0.02);
+        background: rgba(255, 255, 255, 0.02);
         color: var(--text-primary);
         padding: 10px;
         font-size: 12px;
@@ -458,7 +460,7 @@
     .ast-pane {
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-sm);
-        background: rgba(255,255,255,0.02);
+        background: rgba(255, 255, 255, 0.02);
         padding: 10px;
         overflow: auto;
         min-height: 0;
@@ -481,12 +483,14 @@
         font-size: 12px;
     }
 
-    .ast-node > summary {
+    .ast-node>summary {
         cursor: pointer;
         list-style: none;
     }
 
-    .ast-node > summary::-webkit-details-marker { display: none; }
+    .ast-node>summary::-webkit-details-marker {
+        display: none;
+    }
 
     .ast-leaf {
         margin-left: 16px;
@@ -500,10 +504,12 @@
         .editor-main {
             grid-template-columns: 1fr;
         }
+
         .editor-pane {
             border-right: none;
             border-bottom: 1px solid var(--border-subtle);
         }
+
         .format-diff-grid {
             grid-template-columns: 1fr;
         }
@@ -540,7 +546,8 @@
         <div class="toolbar-group">
             <label class="toolbar-btn toolbar-upload">
                 📂 Upload
-                <input id="fileInput" type="file" accept=".py,.js,.ts,.java,.cpp,.c,.go,.php,.rb,.json,.html,.css,.md,.txt" />
+                <input id="fileInput" type="file"
+                    accept=".py,.js,.ts,.java,.cpp,.c,.go,.php,.rb,.json,.html,.css,.md,.txt" />
             </label>
             <button id="newFileBtn" type="button" class="toolbar-btn">✨ New</button>
             <button id="clearBtn" type="button" class="toolbar-btn">🗑 Clear</button>
@@ -551,14 +558,16 @@
         <div class="toolbar-group">
             <button id="formatBtn" type="button" class="toolbar-btn">🎨 Format</button>
             <button id="astBtn" type="button" class="toolbar-btn">🌳 AST</button>
-            <button id="flowchartBtn" type="button" class="toolbar-btn analyze">📊 Flowchart <span class="credit-badge">3 cr</span></button>
+            <button id="flowchartBtn" type="button" class="toolbar-btn analyze">📊 Flowchart <span
+                    class="credit-badge">3 cr</span></button>
             <button id="runBtn" type="button" class="toolbar-btn primary">▶ Run</button>
         </div>
 
         <div class="toolbar-sep"></div>
 
         <div class="toolbar-group">
-            <button id="aiBtn" type="button" class="toolbar-btn ai-btn">🤖 AI Diagnose <span class="credit-badge">5 cr</span></button>
+            <button id="aiBtn" type="button" class="toolbar-btn ai-btn">🤖 AI Diagnose <span class="credit-badge">5
+                    cr</span></button>
             <button id="analyzeBtn" type="button" class="toolbar-btn analyze">⚡ Full Analysis</button>
         </div>
 
@@ -597,25 +606,22 @@
         </div>
 
         <div class="diagnosis-panel">
-            <div class="editor-pane-header">
-                <span>Learning Diagnosis</span>
+            <div class="editor-pane-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <span id="rightPanelTitle">Learning Diagnosis</span>
             </div>
-            <div class="diagnosis-scroll">
+            <div class="diagnosis-scroll" id="diagnosisScroll">
                 <div class="diag-card highlight">
                     <h4>Confidence</h4>
                     <div class="confidence-row">
                         <div class="confidence-ring" id="confRing">
                             <svg viewBox="0 0 64 64">
-                                <circle class="ring-bg" cx="32" cy="32" r="26"/>
-                                <circle class="ring-fill" cx="32" cy="32" r="26"
-                                    stroke="url(#confGrad)"
-                                    stroke-dasharray="163.36"
-                                    stroke-dashoffset="163.36"
-                                    id="confCircle"/>
+                                <circle class="ring-bg" cx="32" cy="32" r="26" />
+                                <circle class="ring-fill" cx="32" cy="32" r="26" stroke="url(#confGrad)"
+                                    stroke-dasharray="163.36" stroke-dashoffset="163.36" id="confCircle" />
                                 <defs>
                                     <linearGradient id="confGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#5b8fd9"/>
-                                        <stop offset="100%" stop-color="#9b7bd4"/>
+                                        <stop offset="0%" stop-color="#5b8fd9" />
+                                        <stop offset="100%" stop-color="#9b7bd4" />
                                     </linearGradient>
                                 </defs>
                             </svg>
@@ -653,6 +659,9 @@
                     <p id="practiceNowText">Available after parsing your code.</p>
                 </div>
             </div>
+            <div id="astVisualPanel" style="display:none; width:100%; height:100%; overflow:hidden;">
+                <svg id="d3AstSvg" width="100%" height="100%"></svg>
+            </div>
         </div>
     </div>
 
@@ -671,12 +680,24 @@
         <div class="tab-panel" id="tab-problems">
             <pre id="problemsOutput">Loading tool status...</pre>
         </div>
-        <div class="tab-panel hidden" id="tab-complexity">Complexity output placeholder.</div>
+        <div class="tab-panel hidden" id="tab-complexity">
+            <div style="padding:16px;">
+                <h3 style="margin-bottom:12px;font-size:16px;color:var(--text-primary);">Cognitive Complexity Hotspots
+                </h3>
+                <p style="color:var(--text-tertiary);font-size:13px;margin-bottom:16px;">Functions and loops with high
+                    branching logic that may need refactoring.</p>
+                <div id="complexityHotspots" style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="color:var(--text-tertiary);font-size:13px;text-align:center;padding:20px;">Run AST /
+                        Tree-sitter analysis to calculate complexity.</div>
+                </div>
+            </div>
+        </div>
         <div class="tab-panel hidden" id="tab-formatted">
             <div class="format-diff-grid">
                 <div class="format-actions">
                     <div class="runtime-label">Formatted Output</div>
-                    <button id="applyFormattedBtn" type="button" class="toolbar-btn primary" style="width:100%;">Apply to Editor</button>
+                    <button id="applyFormattedBtn" type="button" class="toolbar-btn primary" style="width:100%;">Apply
+                        to Editor</button>
                     <button id="clearFormattedBtn" type="button" class="toolbar-btn" style="width:100%;">Clear</button>
                 </div>
                 <div class="format-pane">
@@ -717,24 +738,33 @@
             <pre id="progressOutput">Run AST analysis to build progress timeline.</pre>
         </div>
         <div class="tab-panel hidden" id="tab-flowchart">
-            <div id="flowchartContainer" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto;">
-                <div id="flowchartPlaceholder" style="color:var(--text-tertiary);font-size:13px;">Click the Flowchart button to generate a code flow diagram.</div>
-                <div id="flowchartLoading" style="display:none;color:var(--accent-blue);font-size:13px;">Generating flowchart via AI...</div>
+            <div id="flowchartContainer"
+                style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto;">
+                <div id="flowchartPlaceholder" style="color:var(--text-tertiary);font-size:13px;">Click the Flowchart
+                    button to generate a code flow diagram.</div>
+                <div id="flowchartLoading" style="display:none;color:var(--accent-blue);font-size:13px;">Generating
+                    flowchart via AI...</div>
                 <div id="mermaidOutput" style="display:none;width:100%;height:100%;overflow:auto;padding:10px;"></div>
             </div>
         </div>
         <div class="tab-panel hidden" id="tab-notes">
             <div style="display:flex;gap:10px;height:100%;min-height:0;">
                 <div style="flex:1;display:flex;flex-direction:column;gap:8px;min-height:0;">
-                    <input id="noteTitle" type="text" placeholder="Note title..." style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:6px 10px;color:var(--text-primary);font-size:13px;outline:none;">
-                    <textarea id="noteContent" placeholder="Write your learning notes here..." style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text-primary);font-size:13px;outline:none;resize:none;font-family:inherit;min-height:0;"></textarea>
+                    <input id="noteTitle" type="text" placeholder="Note title..."
+                        style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:6px 10px;color:var(--text-primary);font-size:13px;outline:none;">
+                    <textarea id="noteContent" placeholder="Write your learning notes here..."
+                        style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text-primary);font-size:13px;outline:none;resize:none;font-family:inherit;min-height:0;"></textarea>
                     <div style="display:flex;gap:6px;">
-                        <input id="noteTags" type="text" placeholder="Tags (comma-separated)" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:5px 8px;color:var(--text-primary);font-size:12px;outline:none;">
-                        <button id="saveNoteBtn" type="button" class="toolbar-btn primary" style="padding:5px 16px;">Save</button>
+                        <input id="noteTags" type="text" placeholder="Tags (comma-separated)"
+                            style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:5px 8px;color:var(--text-primary);font-size:12px;outline:none;">
+                        <button id="saveNoteBtn" type="button" class="toolbar-btn primary"
+                            style="padding:5px 16px;">Save</button>
                     </div>
                 </div>
-                <div id="notesList" style="width:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;">
-                    <div style="color:var(--text-tertiary);font-size:12px;text-align:center;padding:20px 0;">Your saved notes will appear here.</div>
+                <div id="notesList"
+                    style="width:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;">
+                    <div style="color:var(--text-tertiary);font-size:12px;text-align:center;padding:20px 0;">Your saved
+                        notes will appear here.</div>
                 </div>
             </div>
         </div>
@@ -743,6 +773,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/loader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/standalone.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/babel.js"></script>
@@ -751,7 +783,6 @@
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/html.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/postcss.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/markdown.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script>
     const extensionToLanguage = {
         py: "python", js: "javascript", ts: "typescript", java: "java",
@@ -809,6 +840,112 @@
     let latestOriginalCode = "";
     let latestSnapshotId = null;
     let latestConceptSignals = {};
+
+
+    function showDiagnosticsView() {
+        const rightPanelTitle = document.getElementById("rightPanelTitle");
+        if (rightPanelTitle) rightPanelTitle.textContent = "Learning Diagnosis";
+        const diagScroll = document.getElementById("diagnosisScroll");
+        if (diagScroll) diagScroll.style.display = "flex";
+        const astPanel = document.getElementById("astVisualPanel");
+        if (astPanel) astPanel.style.display = "none";
+    }
+
+    function showAstVisualView() {
+        const rightPanelTitle = document.getElementById("rightPanelTitle");
+        if (rightPanelTitle) rightPanelTitle.textContent = "Abstract Syntax Tree";
+        const diagScroll = document.getElementById("diagnosisScroll");
+        if (diagScroll) diagScroll.style.display = "none";
+        const astPanel = document.getElementById("astVisualPanel");
+        if (astPanel) astPanel.style.display = "block";
+    }
+
+    function renderD3AstTree(astData) {
+        if (!astData) return;
+        const svgElement = document.getElementById("d3AstSvg");
+        const panel = document.getElementById("astVisualPanel");
+        if (!svgElement || !panel) return;
+
+        svgElement.innerHTML = "";
+
+        const width = panel.clientWidth || 300;
+        const height = panel.clientHeight || 500;
+
+        // Create hierarchy directly from the node structure
+        const root = d3.hierarchy(astData, d => d.children);
+
+        // Define padding and tree layout map
+        const dx = 35;
+        const dy = width / 4;
+        const tree = d3.tree().nodeSize([dx, dy]);
+        tree(root);
+
+        const svg = d3.select(svgElement)
+            .attr("viewBox", [-dy, -height / 2 + 50, width + dy, height].join(" "))
+            .call(d3.zoom().on("zoom", (e) => g.attr("transform", e.transform)))
+            .append("g");
+
+        // Initial positioning
+        let x0 = Infinity;
+        let x1 = -x0;
+        root.each(d => {
+            if (d.x > x1) x1 = d.x;
+            if (d.x < x0) x0 = d.x;
+        });
+
+        const g = svg.attr("transform", `translate(${dy / 3},${-x0 + 50})`);
+
+        // Draw links (edges)
+        g.append("g")
+            .attr("fill", "none")
+            .attr("stroke", "var(--border-subtle)")
+            .attr("stroke-width", 1.5)
+            .selectAll("path")
+            .data(root.links())
+            .join("path")
+            .attr("d", d3.linkHorizontal()
+                .x(d => d.y)
+                .y(d => d.x));
+
+        // Draw nodes
+        const node = g.append("g")
+            .selectAll("g")
+            .data(root.descendants())
+            .join("g")
+            .attr("transform", d => `translate(${d.y},${d.x})`);
+
+        // Node circles
+        node.append("circle")
+            .attr("fill", d => d.children ? "var(--accent-blue)" : "var(--bg-surface)")
+            .attr("stroke", "var(--accent-blue)")
+            .attr("stroke-width", 2)
+            .attr("r", 4);
+
+        // Node labels
+        node.append("text")
+            .attr("dy", "0.31em")
+            .attr("x", d => d.children ? -8 : 8)
+            .attr("text-anchor", d => d.children ? "end" : "start")
+            .attr("fill", "var(--text-primary)")
+            .attr("font-size", "11px")
+            .attr("font-family", "'JetBrains Mono', monospace")
+            .text(d => d.data.type || "node")
+            .clone(true).lower()
+            .attr("stroke", "var(--bg-card)")
+            .attr("stroke-width", 3);
+
+        // Add snippets as smaller text below leaf nodes
+        node.append("text")
+            .attr("dy", "1.5em")
+            .attr("x", 8)
+            .attr("text-anchor", "start")
+            .attr("fill", "var(--text-tertiary)")
+            .attr("font-size", "9px")
+            .text(d => d.children ? "" : (d.data.snippet || "").substring(0, 15))
+            .clone(true).lower()
+            .attr("stroke", "var(--bg-card)")
+            .attr("stroke-width", 2);
+    }
 
     function setStatus(message) { statusEl.textContent = message; }
 
@@ -1107,7 +1244,8 @@
             const astView = { language: data.language, root_type: data.root_type, has_error: data.has_error, sexp: data.sexp, ast: data.ast, concept_signals: data.concept_signals };
             setAstOutput(renderAstHumanReadable(astView));
             renderAstTree(astView.ast);
-            updateConceptPanel(data.concept_signals);
+            showAstVisualView();
+            renderD3AstTree(data.ast);
             latestSnapshotId = data.snapshot_id || null;
             renderProgress(data.progress || null);
             setStatus(`AST parsed (${data.language})`);
@@ -1130,6 +1268,7 @@
             });
             const data = await response.json();
             if (!response.ok || !data.ok) { setStatus(`AI diagnose failed: ${data.error || "Unknown error"}`); return; }
+            showDiagnosticsView();
             updateConceptPanel(data.concept_signals || {});
             latestSnapshotId = data.snapshot_id || latestSnapshotId;
             renderProgress(data.progress || null);
@@ -1193,7 +1332,8 @@
             const aiData = await aiResponse.json();
             if (!aiResponse.ok || !aiData.ok) {
                 setStatus(`Analysis complete (AI skipped): ${aiData.error || "No AI response"}`);
-                refreshToolStatus(); refreshSidebarCredits(); return;
+                refreshToolStatus();
+                showDiagnosticsView(); refreshSidebarCredits(); return;
             }
             updateConceptPanel(aiData.concept_signals || astSignals);
             latestSnapshotId = aiData.snapshot_id || latestSnapshotId;
@@ -1456,8 +1596,8 @@
             try {
                 const res = await fetch("{% url 'ast_flowchart_api' %}", {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({code, language: lang, concept_signals: latestConceptSignals || {}}),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, language: lang, concept_signals: latestConceptSignals || {} }),
                 });
                 const data = await res.json();
                 if (!data.ok) {
@@ -1473,7 +1613,7 @@
                 output.innerHTML = '';
 
                 const id = 'mermaid-' + Date.now();
-                const {svg} = await mermaid.render(id, data.mermaid_code);
+                const { svg } = await mermaid.render(id, data.mermaid_code);
                 output.innerHTML = svg;
 
                 if (data.credits_remaining !== undefined) {
@@ -1538,8 +1678,8 @@
                     try {
                         await fetch("{% url 'notes_api' %}", {
                             method: 'DELETE',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({id: parseInt(noteId)}),
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: parseInt(noteId) }),
                         });
                         if (currentNoteId == noteId) {
                             currentNoteId = null;
@@ -1560,13 +1700,13 @@
             const filename = filenameInput.value.trim();
 
             try {
-                const body = {title, content, tags, filename};
+                const body = { title, content, tags, filename };
                 if (currentNoteId) body.id = currentNoteId;
                 if (latestSnapshotId) body.snapshot_id = latestSnapshotId;
 
                 const res = await fetch("{% url 'notes_api' %}", {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body),
                 });
                 const data = await res.json();
