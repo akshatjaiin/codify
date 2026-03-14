@@ -667,6 +667,23 @@
         margin-top: 2px;
     }
 
+    .duck-focus-chip {
+        margin-top: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 200, 0, 0.28);
+        background: rgba(255, 200, 0, 0.09);
+        color: var(--text-secondary);
+        max-width: 360px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .duck-messages {
         flex: 1;
         overflow-y: auto;
@@ -743,6 +760,20 @@
         border-top: 1px solid var(--border-subtle);
         flex-shrink: 0;
         align-items: flex-end;
+    }
+
+    .duck-quick-actions {
+        display: flex;
+        gap: 6px;
+        padding: 8px 16px 0;
+        flex-wrap: wrap;
+        border-top: 1px solid var(--border-subtle);
+    }
+
+    .duck-quick-btn {
+        font-size: 10px;
+        padding: 4px 8px;
+        border-radius: 999px;
     }
 
     .duck-input {
@@ -1089,6 +1120,7 @@
                     <div>
                         <div class="duck-title">Rubber Duck Mode</div>
                         <div class="duck-subtitle">Explain your code out loud. I'll catch when your logic breaks down.</div>
+                        <div class="duck-focus-chip" id="duckFocusChip">🎯 Focus: line —</div>
                     </div>
                     <button id="duckResetBtn" class="toolbar-btn" style="margin-left:auto;font-size:11px;padding:4px 10px;">Reset</button>
                 </div>
@@ -1099,6 +1131,11 @@
                 </div>
                 <div class="duck-typing" id="duckTyping" style="display:none;">
                     <span class="duck-dot"></span><span class="duck-dot"></span><span class="duck-dot"></span>
+                </div>
+                <div class="duck-quick-actions">
+                    <button id="duckExplainLineBtn" class="toolbar-btn duck-quick-btn" type="button">Explain current line</button>
+                    <button id="duckExplainSelectionBtn" class="toolbar-btn duck-quick-btn" type="button">Explain selection</button>
+                    <button id="duckNextStepBtn" class="toolbar-btn duck-quick-btn" type="button">What next?</button>
                 </div>
                 <div class="duck-input-row">
                     <textarea id="duckInput" class="duck-input" placeholder="Type your explanation... (Enter to send, Shift+Enter for newline)" rows="2"></textarea>
@@ -1484,6 +1521,26 @@
         if (target) target.classList.remove("hidden");
         const tabBtn = document.querySelector(`.tab-btn[data-tab="${key}"]`);
         if (tabBtn) tabBtn.classList.add("active");
+
+        const editorMain = document.getElementById('editorMain');
+        const diagPanel = document.querySelector('.diagnosis-panel');
+        const panelToggle = document.getElementById('panelToggle');
+        if (editorMain && diagPanel && panelToggle) {
+            if (key === 'rubber-duck') {
+                const wasVisible = editorMain.classList.contains('with-panel');
+                window.__duckPrevPanelVisible = Boolean(wasVisible);
+                if (wasVisible) {
+                    editorMain.classList.remove('with-panel');
+                    diagPanel.style.display = 'none';
+                    panelToggle.textContent = '▶';
+                }
+            } else if (window.__duckPrevPanelVisible) {
+                editorMain.classList.add('with-panel');
+                diagPanel.style.display = '';
+                panelToggle.textContent = '◀';
+                window.__duckPrevPanelVisible = false;
+            }
+        }
     }
 
     function convertVsCodeTheme(themeData) {
@@ -2379,6 +2436,43 @@
         const duckSendBtn = document.getElementById('duckSendBtn');
         const duckResetBtn = document.getElementById('duckResetBtn');
         const duckTyping  = document.getElementById('duckTyping');
+        const duckFocusChip = document.getElementById('duckFocusChip');
+        const duckExplainLineBtn = document.getElementById('duckExplainLineBtn');
+        const duckExplainSelectionBtn = document.getElementById('duckExplainSelectionBtn');
+        const duckNextStepBtn = document.getElementById('duckNextStepBtn');
+
+        function getDuckEditorFocus() {
+            const model = editor ? editor.getModel() : null;
+            const position = editor ? editor.getPosition() : null;
+            const selection = editor ? editor.getSelection() : null;
+
+            let selectedText = '';
+            if (model && selection) {
+                selectedText = String(model.getValueInRange(selection) || '').trim();
+            }
+            if (selectedText.length > 260) {
+                selectedText = selectedText.slice(0, 260);
+            }
+
+            return {
+                cursor_line: position ? position.lineNumber : null,
+                cursor_column: position ? position.column : null,
+                selection_start_line: selection ? selection.startLineNumber : null,
+                selection_end_line: selection ? selection.endLineNumber : null,
+                selected_text: selectedText,
+            };
+        }
+
+        function refreshDuckFocusChip() {
+            if (!duckFocusChip) return;
+            const focus = getDuckEditorFocus();
+            const hasSelection = focus.selection_start_line && focus.selection_end_line && focus.selection_start_line !== focus.selection_end_line;
+            const lineLabel = hasSelection
+                ? `L${focus.selection_start_line}-L${focus.selection_end_line}`
+                : (focus.cursor_line ? `L${focus.cursor_line}` : 'line —');
+            const textPart = focus.selected_text ? ` • ${focus.selected_text.replace(/\s+/g, ' ').slice(0, 40)}` : '';
+            duckFocusChip.textContent = `🎯 Focus: ${lineLabel}${textPart}`;
+        }
 
         function duckScroll() {
             duckMessages.scrollTop = duckMessages.scrollHeight;
@@ -2398,12 +2492,14 @@
             if (!msg) return;
             const code = editor ? editor.getValue() : '';
             if (!code.trim()) { setStatus('Load some code first before using Rubber Duck mode.'); return; }
+            const focus = getDuckEditorFocus();
+            refreshDuckFocusChip();
 
             duckInput.value = '';
             duckInput.style.height = 'auto';
             duckAppendBubble('user', msg);
 
-            duckHistory.push({ role: 'user', content: msg });
+            duckHistory.push({ role: 'user', content: msg, focus });
 
             duckTyping.style.display = 'flex';
             duckScroll();
@@ -2415,7 +2511,10 @@
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
                     body: JSON.stringify({
                         code,
+                        filename: filenameInput.value.trim() || 'untitled',
                         language: languageSelect.value,
+                        concept_signals: latestConceptSignals || {},
+                        editor_context: focus,
                         history: duckHistory.slice(0, -1), // don't double-send last msg
                         message: msg,
                     }),
@@ -2442,6 +2541,34 @@
 
         duckSendBtn.addEventListener('click', duckSend);
 
+        if (duckExplainLineBtn) {
+            duckExplainLineBtn.addEventListener('click', () => {
+                const focus = getDuckEditorFocus();
+                const lineLabel = focus.cursor_line ? `line ${focus.cursor_line}` : 'current line';
+                duckInput.value = `Help me build intuition for ${lineLabel}: what should this line do in program flow and what can go wrong?`;
+                duckInput.focus();
+            });
+        }
+
+        if (duckExplainSelectionBtn) {
+            duckExplainSelectionBtn.addEventListener('click', () => {
+                const focus = getDuckEditorFocus();
+                if (!focus.selected_text) {
+                    setStatus('Select a snippet first for selection-based duck help.');
+                    return;
+                }
+                duckInput.value = 'Explain this selected block step-by-step for intuition (state changes, assumptions, edge cases), without giving code fixes.';
+                duckInput.focus();
+            });
+        }
+
+        if (duckNextStepBtn) {
+            duckNextStepBtn.addEventListener('click', () => {
+                duckInput.value = 'Given my current code and focus, what is the next conceptual check I should do line by line?';
+                duckInput.focus();
+            });
+        }
+
         duckInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -2455,8 +2582,19 @@
                 <div class="duck-bubble duck">
                     <span>Quack! 🦆 Fresh start. Tell me about your code again — what is it supposed to do?</span>
                 </div>`;
+            refreshDuckFocusChip();
             setStatus('Rubber Duck session reset');
         });
+
+        if (editor) {
+            editor.onDidChangeCursorPosition(() => {
+                refreshDuckFocusChip();
+            });
+            editor.onDidChangeCursorSelection(() => {
+                refreshDuckFocusChip();
+            });
+            refreshDuckFocusChip();
+        }
 
         // ===== CODE MORPHING OPTIMIZER =====
         let diffEditor = null;

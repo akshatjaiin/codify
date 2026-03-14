@@ -1964,6 +1964,60 @@ def notes_api(request):
     return HttpResponseNotAllowed(["GET", "POST", "DELETE"])
 
 
+def _build_workspace_duck_context(language: str = "", max_files: int = 80, max_snippets: int = 6) -> dict:
+    root = Path(__file__).resolve().parent.parent
+    allowed_suffixes = {
+        ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".c", ".cpp", ".h", ".hpp",
+        ".go", ".php", ".rb", ".html", ".css", ".json", ".md",
+    }
+    skip_parts = {".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build"}
+
+    files = []
+    for path in root.rglob("*"):
+        if len(files) >= max_files:
+            break
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in allowed_suffixes:
+            continue
+        if any(part in skip_parts for part in path.parts):
+            continue
+        try:
+            rel = path.relative_to(root).as_posix()
+        except ValueError:
+            rel = path.name
+        files.append(rel)
+
+    language_hint = str(language or "").lower()
+    preferred = []
+    for rel in files:
+        if language_hint in ("python", "py") and rel.endswith(".py"):
+            preferred.append(rel)
+        elif language_hint in ("javascript", "typescript", "js", "ts") and (rel.endswith(".js") or rel.endswith(".ts")):
+            preferred.append(rel)
+        elif language_hint in ("html", "css", "json") and rel.endswith(f".{language_hint}"):
+            preferred.append(rel)
+
+    snippet_targets = preferred[:max_snippets] if preferred else files[:max_snippets]
+    snippets = []
+    for rel in snippet_targets:
+        abs_path = root / rel
+        try:
+            text = abs_path.read_text(encoding="utf-8", errors="replace")
+            preview_lines = [line for line in text.splitlines()[:14] if line.strip()]
+            preview = "\n".join(preview_lines)[:850]
+            snippets.append({"path": rel, "preview": preview})
+        except OSError:
+            continue
+
+    return {
+        "workspace_root": root.name,
+        "file_count": len(files),
+        "files": files,
+        "snippets": snippets,
+    }
+
+
 @csrf_exempt
 def rubber_duck_api(request):
     """
@@ -1980,9 +2034,12 @@ def rubber_duck_api(request):
         return JsonResponse({"ok": False, "error": "Invalid JSON payload."}, status=400)
 
     code = str(payload.get("code", "")).strip()
+    filename = str(payload.get("filename", "untitled")).strip() or "untitled"
     language = str(payload.get("language", "python")).strip().lower()
     user_message = str(payload.get("message", "")).strip()
     history = payload.get("history", [])
+    editor_context_payload = payload.get("editor_context", {})
+    concept_signals_payload = payload.get("concept_signals", {})
 
     if not code:
         return JsonResponse({"ok": False, "error": "No code provided."}, status=400)
@@ -1990,6 +2047,10 @@ def rubber_duck_api(request):
         return JsonResponse({"ok": False, "error": "No message provided."}, status=400)
     if not isinstance(history, list):
         history = []
+    if not isinstance(editor_context_payload, dict):
+        editor_context_payload = {}
+    if not isinstance(concept_signals_payload, dict):
+        concept_signals_payload = {}
 
     profile = _get_or_create_profile(request)
     memory_context = _build_memory_context(profile)
@@ -2000,9 +2061,89 @@ def rubber_duck_api(request):
         "concept_signals": {},
         "hotspots": [],
         "parse_error": False,
+        "filename": filename,
         "code_excerpt": code[:2200],
         "symbol_hints": [],
+        "editor_focus": {
+            "cursor_line": editor_context_payload.get("cursor_line"),
+            "cursor_column": editor_context_payload.get("cursor_column"),
+            "selection_start_line": editor_context_payload.get("selection_start_line"),
+            "selection_end_line": editor_context_payload.get("selection_end_line"),
+            "selected_text": str(editor_context_payload.get("selected_text", ""))[:260],
+        },
     }
+
+    code_context["workspace_context"] = _build_workspace_duck_context(language=language)
+
+    if concept_signals_payload:
+        code_context["concept_signals"] = concept_signals_payload
+
+    try:
+        code_lines = code.splitlines()
+        cursor_line_raw = code_context["editor_focus"].get("cursor_line")
+        selection_start_raw = code_context["editor_focus"].get("selection_start_line")
+        selection_end_raw = code_context["editor_focus"].get("selection_end_line")
+
+        def _safe_line_num(value):
+            try:
+                line_num = int(value)
+                if line_num < 1:
+                    return None
+                return line_num
+            except (TypeError, ValueError):
+                return None
+
+        cursor_line = _safe_line_num(cursor_line_raw)
+        selection_start = _safe_line_num(selection_start_raw)
+        selection_end = _safe_line_num(selection_end_raw)
+
+        line_count = len(code_lines)
+        code_context["editor_focus"]["line_count"] = line_count
+        code_context["editor_focus"]["cursor_line_requested"] = cursor_line
+
+        if selection_start and selection_end and selection_end < selection_start:
+            selection_start, selection_end = selection_end, selection_start
+
+        if cursor_line and line_count > 0 and cursor_line > line_count:
+            cursor_line = line_count
+
+        focus_line = selection_start or cursor_line
+
+        if focus_line and line_count > 0:
+            focus_line = max(1, min(focus_line, line_count))
+
+            def _nearest_non_empty_line(target_line: int) -> int:
+                if not code_lines:
+                    return target_line
+                if code_lines[target_line - 1].strip():
+                    return target_line
+                for radius in range(1, line_count + 1):
+                    up = target_line - radius
+                    down = target_line + radius
+                    if up >= 1 and code_lines[up - 1].strip():
+                        return up
+                    if down <= line_count and code_lines[down - 1].strip():
+                        return down
+                return target_line
+
+            focus_line = _nearest_non_empty_line(focus_line)
+            code_context["editor_focus_line"] = focus_line
+            code_context["editor_focus_line_text"] = code_lines[focus_line - 1][:220]
+
+            start = max(1, focus_line - 1)
+            end = min(line_count, focus_line + 1)
+            neighborhood = []
+            for line_no in range(start, end + 1):
+                neighborhood.append(f"L{line_no}: {code_lines[line_no - 1][:180]}")
+            code_context["editor_focus_neighborhood"] = neighborhood
+
+        if selection_start and selection_end and selection_start <= len(code_lines):
+            selection_end = min(selection_end or selection_start, len(code_lines))
+            selected_block = "\n".join(code_lines[selection_start - 1:selection_end])
+            if selected_block:
+                code_context["editor_selected_block"] = selected_block[:700]
+    except Exception:
+        pass
 
     try:
         import re
@@ -2029,7 +2170,8 @@ def rubber_duck_api(request):
             tree = parser.parse(code_bytes)
             root = tree.root_node
             code_context["parse_error"] = bool(root.has_error)
-            code_context["concept_signals"] = _collect_concept_signals(root)
+            ast_signals = _collect_concept_signals(root)
+            code_context["concept_signals"] = {**ast_signals, **(code_context.get("concept_signals") or {})}
             code_context["hotspots"] = _analyze_ast_complexity(root, code_bytes)[:5]
         except Exception:
             pass

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -391,39 +392,98 @@ def rubber_duck_chat(
 
     code_context = code_context or {}
 
-    system_prompt = f"""You are a Rubber Duck Debugger — a Socratic coding mentor for students.
+    editor_focus = (code_context or {}).get("editor_focus") or {}
+    selected_text = str(editor_focus.get("selected_text", "")).strip()
+    selected_preview = selected_text[:180] if selected_text else ""
+    focus_line = code_context.get("editor_focus_line")
+    focus_line_text = str(code_context.get("editor_focus_line_text", "")).strip()
+    focus_neighborhood = code_context.get("editor_focus_neighborhood") or []
+    user_message_lower = (user_message or "").strip().lower()
+    explain_mode = bool(re.search(r"\b(explain|samjha|samjhao|meaning|matlab)\b", user_message_lower))
+    requested_line = None
+    if "first line" in user_message_lower:
+        requested_line = 1
+    else:
+        line_match = re.search(r"\bline\s*(\d+)\b|\b(\d+)\s*line\b", user_message_lower)
+        if line_match:
+            requested_line = int(line_match.group(1) or line_match.group(2))
 
-The student is explaining their code to you, line by line or concept by concept.
+    system_prompt = """You are a helpful Rubber Duck Debugger for code intuition.
 
-Your STRICT rules:
-1. NEVER reveal direct answers, fixed code, pseudocode, or code snippets.
-2. Listen carefully. When the student says something LOGICALLY INCORRECT or reveals a CONCEPTUAL GAP, ask ONE sharp, focused probing question that forces them to think.
-3. If everything sounds correct, acknowledge briefly and ask them to continue ("I see — and what happens next?").
-4. Ask only ONE question at a time. Never lecture. Never explain. Just question.
-5. Be brief. Max 2-3 sentences. Act confused so the student has to be precise.
-6. If the student seems stuck for 2+ replies, ask a simpler version of the question.
-7. Track their explanation against the real code logic below.
-8. Build intuition, not answers: focus on invariants, state transitions, edge cases, and complexity reasoning.
-9. Do NOT output any line of code from the user's program.
-10. Use code context every turn: ground your question in at least one concrete structural anchor (e.g., loop, branch, function role, variable purpose, or data-flow step).
+Rules:
+- Never provide complete code, direct fix, or step-by-step solution.
+- Default mode: ask one focused Socratic question at a time.
+- Keep it short: max 2-3 sentences.
+- Ground each question in the user's current code context.
+- Always anchor your question to the focused line or selected snippet when available.
+- Never ask the user to point to a function/section/line because focus context is already provided.
+- If user asks for direct code, refuse politely and ask a conceptual question.
+- Prioritize intuition: invariants, state transitions, edge cases, and complexity.
+- You ALWAYS have access to the user's full current code in system context for this turn.
+- NEVER say you cannot see code, cannot access files, or ask the user to paste code again.
+- If user asks to explain a line/first line/line number: switch to TEACHER MODE.
+    In TEACHER MODE, first give a concrete explanation of the focused line in plain language, then ask one short check question.
+- Do not guess random operations. If focus line text is empty, use nearest non-empty focus line from context.
+"""
 
-The code they are explaining:
-```{language}
-{code}
-```
+    context_payload = {
+        "language": language,
+        "failed_attempts": failed_attempts,
+        "teaching_mode": {
+            "explain_mode": explain_mode,
+            "requested_line": requested_line,
+        },
+        "editor_focus": {
+            "cursor_line": editor_focus.get("cursor_line"),
+            "cursor_column": editor_focus.get("cursor_column"),
+            "selection_start_line": editor_focus.get("selection_start_line"),
+            "selection_end_line": editor_focus.get("selection_end_line"),
+            "selected_text_preview": selected_preview or "None",
+            "focus_line": focus_line,
+            "focus_line_text": focus_line_text or "None",
+            "focus_neighborhood": focus_neighborhood,
+        },
+        "memory_context": memory_context or "No prior memory context.",
+        "code_context": code_context,
+        "current_code": code,
+    }
 
-AST/context summary for guidance:
-{json.dumps(code_context)}
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "system",
+            "content": "Current code + learner context (use for grounding, never output code):\n"
+            + json.dumps(context_payload, ensure_ascii=False),
+        },
+        {
+            "role": "system",
+            "content": f"FULL_CURRENT_CODE ({language})\n---BEGIN CODE---\n{code}\n---END CODE---",
+        },
+    ]
 
-Student learning memory context:
-{memory_context or "No prior memory context."}
-
-Estimated stuck signal: failed_attempts={failed_attempts}
-
-You are an impartial rubber duck. You do not know the answer — you only know if the student's explanation is internally consistent.
-When their explanation contradicts the code's actual behavior, ask a probing question that helps them self-correct without giving implementation details."""
-
-    messages = [{"role": "system", "content": system_prompt}]
+    def _format_focus_meta(focus_obj: dict[str, Any] | None) -> str:
+        if not isinstance(focus_obj, dict):
+            return ""
+        cursor_line = focus_obj.get("cursor_line")
+        cursor_column = focus_obj.get("cursor_column")
+        selection_start = focus_obj.get("selection_start_line")
+        selection_end = focus_obj.get("selection_end_line")
+        selected_text = str(focus_obj.get("selected_text") or "").strip()
+        if len(selected_text) > 120:
+            selected_text = selected_text[:120]
+        parts = []
+        if cursor_line:
+            if cursor_column:
+                parts.append(f"cursor=L{cursor_line}:C{cursor_column}")
+            else:
+                parts.append(f"cursor=L{cursor_line}")
+        if selection_start and selection_end:
+            parts.append(f"selection=L{selection_start}-L{selection_end}")
+        if selected_text:
+            parts.append(f"selected='{selected_text}'")
+        if not parts:
+            return ""
+        return "[user_focus " + " | ".join(parts) + "]"
 
     # Inject history
     for turn in history[-10:]:
@@ -433,20 +493,30 @@ When their explanation contradicts the code's actual behavior, ask a probing que
         if role not in ("user", "assistant"):
             continue
         content = str(turn.get("content", "")).strip()
-        if content:
+        if not content:
+            continue
+
+        if role == "user":
+            focus_prefix = _format_focus_meta(turn.get("focus"))
+            if focus_prefix:
+                messages.append({"role": role, "content": f"{focus_prefix}\n{content}"})
+            else:
+                messages.append({"role": role, "content": content})
+        else:
             messages.append({"role": role, "content": content})
 
-    messages.append({"role": "user", "content": user_message})
+    current_focus_prefix = _format_focus_meta(editor_focus)
+    if current_focus_prefix:
+        messages.append({"role": "user", "content": f"{current_focus_prefix}\n{user_message}"})
+    else:
+        messages.append({"role": "user", "content": user_message})
 
     payload = {
         "model": model,
         "messages": messages,
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": RUBBER_DUCK_RESPONSE_SCHEMA,
-        },
+        "reasoning_effort": "instant",
         "stream": False,
-        "max_tokens": 200,
+        "max_tokens": 220,
     }
 
     headers = {
@@ -469,14 +539,80 @@ When their explanation contradicts the code's actual behavior, ask a probing que
         }
 
     try:
-        content = body["choices"][0]["message"]["content"]
-        parsed = json.loads(content) if isinstance(content, str) else content
-        reply = str(parsed.get("reply", "")).strip()
-    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        content = body["choices"][0]["message"].get("content", "")
+        if isinstance(content, list):
+            chunks = []
+            for item in content:
+                if isinstance(item, dict):
+                    text_val = item.get("text") or item.get("content")
+                    if text_val:
+                        chunks.append(str(text_val))
+                elif isinstance(item, str):
+                    chunks.append(item)
+            reply = "\n".join(chunks).strip()
+        else:
+            reply = str(content or "").strip()
+    except (KeyError, IndexError, TypeError):
         return {"ok": False, "error": "Could not parse AI response."}
+
+    if reply.startswith("{"):
+        try:
+            parsed = json.loads(reply)
+            if isinstance(parsed, dict) and "reply" in parsed:
+                reply = str(parsed.get("reply", "")).strip()
+        except json.JSONDecodeError:
+            pass
 
     if not reply:
         return {"ok": False, "error": "AI returned an empty rubber duck reply."}
+
+    missing_code_context = re.search(
+        r"(don't|do not|cannot|can't)\s+(have|access|see).*(code|source|file)|share\s+the\s+snippet|paste\s+the\s+code",
+        reply,
+        re.IGNORECASE,
+    )
+    generic_location_ask = re.search(
+        r"which\s+specific\s+(function|section|line)|point\s+me\s+to|which\s+line\s+you\s+are\s+referring",
+        reply,
+        re.IGNORECASE,
+    )
+    random_guessy_reply = re.search(
+        r"define\s+the\s+function\s+signature|import\s+a\s+module|set\s+an\s+initial\s+variable",
+        reply,
+        re.IGNORECASE,
+    )
+    if missing_code_context or generic_location_ask:
+        anchor = "your current focus"
+        if focus_line and focus_line_text:
+            anchor = f"line {focus_line} ({focus_line_text[:90]})"
+        elif selected_preview:
+            anchor = f"the selected snippet ({selected_preview[:90]})"
+
+        reply = (
+            f"I can see your code context. At {anchor}, what state change should happen after this step, "
+            "and which assumption might be causing the mismatch you are seeing?"
+        )
+
+    if random_guessy_reply and focus_line_text:
+        reply = (
+            f"On line {focus_line}, this part `{focus_line_text[:100]}` runs at this step of your flow. "
+            "In your own words, what input/state does it consume, and what output/state should it produce next?"
+        )
+
+    if explain_mode and focus_line_text:
+        line_ref = requested_line or focus_line
+        reply = (
+            f"Line {line_ref} is doing: `{focus_line_text[:120]}`. "
+            "It matters because it changes/sets the state used by the next step. "
+            "Quick check: what value do you expect immediately after this line executes?"
+        )
+
+    code_like = re.search(r"```|\b(def|class|function|return|for|while|if|else|import|public|static)\b\s*[:\(\{]", reply, re.IGNORECASE)
+    if code_like:
+        reply = (
+            "Let’s keep this intuition-first. At your current focus area, what should the variable state be "
+            "before and after this step, and which edge case could break that assumption?"
+        )
 
     return {"ok": True, "reply": reply}
 
