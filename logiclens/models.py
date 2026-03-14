@@ -5,6 +5,9 @@ class UserProfile(models.Model):
 	session_key = models.CharField(max_length=255, unique=True)
 	display_name = models.CharField(max_length=100, default="Learner")
 	credits = models.IntegerField(default=50)
+	badges = models.JSONField(default=list, blank=True)
+	current_streak = models.IntegerField(default=0)
+	last_activity_date = models.DateField(null=True, blank=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	def __str__(self):
@@ -44,6 +47,13 @@ class CreditTransaction(models.Model):
 
 class DiagnosticSnapshot(models.Model):
 	created_at = models.DateTimeField(auto_now_add=True)
+	profile = models.ForeignKey(
+		UserProfile,
+		related_name="snapshots",
+		on_delete=models.CASCADE,
+		null=True,
+		blank=True,
+	)
 	filename = models.CharField(max_length=255, default="untitled")
 	language = models.CharField(max_length=50, default="plaintext")
 	code = models.TextField(blank=True, default="")

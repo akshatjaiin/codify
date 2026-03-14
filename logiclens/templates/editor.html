@@ -156,6 +156,7 @@
     }
 
     /* === Editor + Panel === */
+    /* === Editor + Panel vertical split resizer === */
     .editor-main {
         flex: 1;
         display: grid;
@@ -163,17 +164,53 @@
         gap: 0;
         min-height: 0;
         overflow: hidden;
+        position: relative;
     }
 
     .editor-main.with-panel {
-        grid-template-columns: 1fr minmax(320px, 30%);
+        grid-template-columns: 1fr 6px minmax(260px, 30%);
+    }
+
+    .panel-resizer {
+        width: 6px;
+        cursor: ew-resize;
+        background: transparent;
+        border-left: 1px solid var(--border-subtle);
+        position: relative;
+        transition: background 0.15s;
+        z-index: 10;
+        flex-shrink: 0;
+    }
+
+    .panel-resizer:hover,
+    .panel-resizer.dragging {
+        background: rgba(59, 130, 246, 0.18);
+        border-left-color: var(--accent-blue);
+    }
+
+    .panel-resizer::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 3px;
+        height: 32px;
+        background: var(--border-medium);
+        border-radius: 2px;
+        transition: background 0.15s;
+    }
+
+    .panel-resizer:hover::after,
+    .panel-resizer.dragging::after {
+        background: var(--accent-blue);
     }
 
     .editor-pane {
         display: flex;
         flex-direction: column;
         min-height: 0;
-        border-right: 1px solid var(--border-subtle);
+        overflow: hidden;
     }
 
     .editor-pane-header {
@@ -325,11 +362,53 @@
 
     /* === Bottom Tabs === */
     .bottom-section {
-        height: 200px;
-        min-height: 120px;
-        border-top: 1px solid var(--border-subtle);
+        height: 220px;
+        min-height: 80px;
+        max-height: 85vh;
+        flex-shrink: 0;
+        border-top: none;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
+        transition: none;
+        position: relative;
+    }
+
+    .bottom-resizer {
+        height: 14px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        cursor: ns-resize;
+        background: transparent;
+        border-top: 1px solid var(--border-subtle);
+        transition: background 0.15s;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: none;
+    }
+
+    .bottom-resizer:hover,
+    .bottom-resizer.dragging {
+        background: rgba(59, 130, 246, 0.18);
+        border-top-color: var(--accent-blue);
+    }
+
+    .bottom-resizer::after {
+        content: '';
+        width: 40px;
+        height: 3px;
+        background: var(--border-medium);
+        border-radius: 2px;
+        transition: background 0.15s;
+    }
+
+    .bottom-resizer:hover::after,
+    .bottom-resizer.dragging::after {
+        background: var(--accent-blue);
     }
 
     .tab-bar {
@@ -338,6 +417,8 @@
         border-bottom: 1px solid var(--border-subtle);
         background: rgba(255, 255, 255, 0.015);
         overflow-x: auto;
+        margin-top: 14px;
+        position: relative;
     }
 
     .tab-btn {
@@ -361,6 +442,56 @@
 
     .tab-btn.active {
         color: var(--accent-blue);
+    }
+
+    body.resizing-active {
+        user-select: none !important;
+    }
+
+    /* === Optimizer Panel === */
+    .optimizer-grid {
+        display: grid;
+        grid-template-columns: 1fr 240px;
+        gap: 16px;
+        height: 100%;
+        min-height: 0;
+    }
+    
+    .optimizer-diff-container {
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        background: rgba(0,0,0,0.2);
+        overflow: hidden;
+        height: 100%;
+    }
+
+    .optimizer-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow-y: auto;
+    }
+
+    .morph-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        padding: 10px;
+    }
+
+    .morph-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--accent-blue);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+        display: block;
+    }
+
+    .morph-detail {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.4;
     }
 
     .tab-btn.active::after {
@@ -500,6 +631,144 @@
         line-height: 1.4;
     }
 
+    /* === Rubber Duck Mode === */
+    .duck-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .duck-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        flex-shrink: 0;
+        background: rgba(255, 220, 50, 0.04);
+    }
+
+    .duck-avatar {
+        font-size: 28px;
+        filter: drop-shadow(0 0 8px rgba(255, 200, 0, 0.4));
+        flex-shrink: 0;
+    }
+
+    .duck-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .duck-subtitle {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        margin-top: 2px;
+    }
+
+    .duck-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 0;
+    }
+
+    .duck-bubble {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 16px;
+        font-size: 13px;
+        line-height: 1.5;
+        animation: bubbleIn 0.2s ease;
+    }
+
+    @keyframes bubbleIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .duck-bubble.duck {
+        background: rgba(255, 200, 0, 0.1);
+        border: 1px solid rgba(255, 200, 0, 0.25);
+        color: var(--text-primary);
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+
+    .duck-bubble.duck.gap {
+        background: rgba(239, 68, 68, 0.08);
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .duck-bubble.user {
+        background: rgba(91, 143, 217, 0.12);
+        border: 1px solid rgba(91, 143, 217, 0.25);
+        color: var(--text-primary);
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+
+    .duck-typing {
+        padding: 6px 16px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    .duck-dot {
+        width: 6px;
+        height: 6px;
+        background: rgba(255, 200, 0, 0.6);
+        border-radius: 50%;
+        animation: duckDot 1.2s infinite;
+    }
+
+    .duck-dot:nth-child(2) { animation-delay: 0.2s; }
+    .duck-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes duckDot {
+        0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+        40% { transform: scale(1); opacity: 1; }
+    }
+
+    .duck-input-row {
+        display: flex;
+        gap: 8px;
+        padding: 10px 16px;
+        border-top: 1px solid var(--border-subtle);
+        flex-shrink: 0;
+        align-items: flex-end;
+    }
+
+    .duck-input {
+        flex: 1;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+        color: var(--text-primary);
+        font-size: 13px;
+        font-family: inherit;
+        resize: none;
+        outline: none;
+        line-height: 1.4;
+        transition: border-color 0.2s;
+    }
+
+    .duck-input:focus {
+        border-color: rgba(255, 200, 0, 0.5);
+    }
+
+    .duck-send-btn {
+        flex-shrink: 0;
+        align-self: flex-end;
+    }
+
     @media (max-width: 1200px) {
         .editor-main {
             grid-template-columns: 1fr;
@@ -605,7 +874,10 @@
             </div>
         </div>
 
-        <div class="diagnosis-panel">
+        <!-- Vertical Resizer -->
+        <div class="panel-resizer" id="panelResizer" title="Drag to resize · Double-click to reset"></div>
+
+        <div class="diagnosis-panel" id="diagnosisPanel">
             <div class="editor-pane-header" style="display:flex; justify-content:space-between; align-items:center;">
                 <span id="rightPanelTitle">Learning Diagnosis</span>
             </div>
@@ -658,6 +930,13 @@
                     <h4>Practice</h4>
                     <p id="practiceNowText">Available after parsing your code.</p>
                 </div>
+
+                <!-- Conceptual Memory Card -->
+                <div class="diag-card" id="memoryCard" style="border-color:rgba(147,112,219,0.2);background:rgba(147,112,219,0.04);">
+                    <h4 style="color:var(--accent-purple,#9b7bd4);">🧠 Learning Memory</h4>
+                    <div id="memoryContent" style="color:var(--text-tertiary);font-size:12px;">Analysing your history...</div>
+                </div>
+
             </div>
             <div id="astVisualPanel" style="display:none; width:100%; height:100%; overflow:hidden;">
                 <svg id="d3AstSvg" width="100%" height="100%"></svg>
@@ -666,7 +945,8 @@
     </div>
 
     <!-- Bottom Tabs -->
-    <div class="bottom-section">
+    <div class="bottom-section" id="bottomSection">
+        <div class="bottom-resizer" id="bottomResizer" title="Drag to resize · Double-click to reset"></div>
         <div class="tab-bar">
             <button class="tab-btn active" data-tab="problems">Problems</button>
             <button class="tab-btn" data-tab="complexity">Complexity</button>
@@ -674,7 +954,9 @@
             <button class="tab-btn" data-tab="runtime">Runtime</button>
             <button class="tab-btn" data-tab="ast">AST / Tree-sitter</button>
             <button class="tab-btn" data-tab="flowchart">Flowchart</button>
+            <button class="tab-btn" data-tab="optimizer">🔥 Optimizer</button>
             <button class="tab-btn" data-tab="progress">Progress</button>
+            <button class="tab-btn" data-tab="rubber-duck">🦆 Rubber Duck</button>
             <button class="tab-btn" data-tab="notes">Notes</button>
         </div>
         <div class="tab-panel" id="tab-problems">
@@ -734,17 +1016,47 @@
                 </div>
             </div>
         </div>
+        <div class="tab-panel hidden" id="tab-flowchart">
+            <div style="height:100%;display:flex;flex-direction:column;min-height:0;">
+                <div id="flowchartPlaceholder" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:13px;text-align:center;padding:20px;">
+                    Generate a flowchart to visualize your code logic.
+                </div>
+                <div id="flowchartLoading" style="display:none;flex:1;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:13px;">
+                    Building flowchart...
+                </div>
+                <div id="mermaidOutput" style="display:none;flex:1;overflow:auto;padding:8px;background:rgba(255,255,255,0.02);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);"></div>
+            </div>
+        </div>
         <div class="tab-panel hidden" id="tab-progress">
             <pre id="progressOutput">Run AST analysis to build progress timeline.</pre>
         </div>
-        <div class="tab-panel hidden" id="tab-flowchart">
-            <div id="flowchartContainer"
-                style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto;">
-                <div id="flowchartPlaceholder" style="color:var(--text-tertiary);font-size:13px;">Click the Flowchart
-                    button to generate a code flow diagram.</div>
-                <div id="flowchartLoading" style="display:none;color:var(--accent-blue);font-size:13px;">Generating
-                    flowchart via AI...</div>
-                <div id="mermaidOutput" style="display:none;width:100%;height:100%;overflow:auto;padding:10px;"></div>
+        <!-- Optimizer Panel -->
+        <div class="tab-panel hidden" id="tab-optimizer">
+            <div class="optimizer-grid">
+                <div class="optimizer-diff-container" id="morphDiffContainer">
+                    <div style="height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-tertiary);">
+                        Click 'Optimize Code' to see a morphed comparison.
+                    </div>
+                </div>
+                <div class="optimizer-sidebar">
+                    <div class="morph-card" style="border-left: 3px solid var(--accent-blue);">
+                        <div class="morph-label">Optimizer Hub</div>
+                        <div class="morph-detail">AI will rewrite your code for maximum efficiency and readability.</div>
+                        <button id="morphBtn" class="toolbar-btn primary" style="width:100%; margin-top:10px;">⚡ Optimize Code (4 cr)</button>
+                    </div>
+                    <div id="morphStats" style="display:none; flex-direction:column; gap:8px;">
+                        <div class="morph-card">
+                            <div class="morph-label">Complexity Shift</div>
+                            <div style="font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                                <span id="morphCBefore" style="color:var(--text-tertiary);">?</span>
+                                <span style="color:var(--text-tertiary);">→</span>
+                                <span id="morphCAfter" style="color:var(--accent-green);">?</span>
+                            </div>
+                        </div>
+                        <div id="morphChangesList" style="display:flex; flex-direction:column; gap:6px;"></div>
+                        <button id="applyMorphBtn" class="toolbar-btn" style="width:100%;">Apply Optimizations</button>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="tab-panel hidden" id="tab-notes">
@@ -768,6 +1080,33 @@
                 </div>
             </div>
         </div>
+
+        <!-- Rubber Duck Mode Panel -->
+        <div class="tab-panel hidden" id="tab-rubber-duck">
+            <div class="duck-container">
+                <div class="duck-header">
+                    <div class="duck-avatar">🦆</div>
+                    <div>
+                        <div class="duck-title">Rubber Duck Mode</div>
+                        <div class="duck-subtitle">Explain your code out loud. I'll catch when your logic breaks down.</div>
+                    </div>
+                    <button id="duckResetBtn" class="toolbar-btn" style="margin-left:auto;font-size:11px;padding:4px 10px;">Reset</button>
+                </div>
+                <div class="duck-messages" id="duckMessages">
+                    <div class="duck-bubble duck">
+                        <span>Quack! 🦆 I'm listening. Start explaining your code to me — what does it do? Walk me through it line by line.</span>
+                    </div>
+                </div>
+                <div class="duck-typing" id="duckTyping" style="display:none;">
+                    <span class="duck-dot"></span><span class="duck-dot"></span><span class="duck-dot"></span>
+                </div>
+                <div class="duck-input-row">
+                    <textarea id="duckInput" class="duck-input" placeholder="Type your explanation... (Enter to send, Shift+Enter for newline)" rows="2"></textarea>
+                    <button id="duckSendBtn" class="toolbar-btn primary duck-send-btn">Send</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 {% endblock %}
@@ -775,14 +1114,35 @@
 {% block extra_js %}
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/loader.js"></script>
+
+<!-- Load Prettier BEFORE Monaco loader to prevent AMD define conflicts -->
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/standalone.js"></script>
+<script>
+    // Save AMD define that Prettier may have set, then null it out so Monaco's loader can own AMD
+    window.__prettierPlugins = {};
+    var __savedDefine = window.define;
+    window.define = undefined;
+</script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/babel.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/estree.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/typescript.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/html.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/postcss.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prettier@3.3.3/plugins/markdown.js"></script>
+<script>
+    // Collect all prettier plugins before Monaco takes over AMD
+    window.prettierPlugins = [
+        window.prettierPlugins?.babel || window.prettier?.plugins?.babel,
+        window.prettierPlugins?.estree || window.prettier?.plugins?.estree,
+        window.prettierPlugins?.typescript || window.prettier?.plugins?.typescript,
+        window.prettierPlugins?.html || window.prettier?.plugins?.html,
+        window.prettierPlugins?.postcss || window.prettier?.plugins?.postcss,
+        window.prettierPlugins?.markdown || window.prettier?.plugins?.markdown,
+    ].filter(Boolean);
+    // Restore define for Monaco
+    if (typeof __savedDefine !== 'undefined') window.define = __savedDefine;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs/loader.js"></script>
 <script>
     const extensionToLanguage = {
         py: "python", js: "javascript", ts: "typescript", java: "java",
@@ -796,6 +1156,172 @@
         cpp: "cpp", c: "c", go: "go", php: "php", ruby: "rb",
         json: "json", html: "html", css: "css", markdown: "md", plaintext: "txt"
     };
+
+    // ===== LEFT PANEL (vertical) DRAG RESIZE =====
+    (function() {
+        const resizer   = document.getElementById('panelResizer');
+        const grid      = document.getElementById('editorMain');
+        if (!resizer || !grid) return;
+
+        const DEFAULT_W = 30; // percent
+        const MIN_W = 200;    // px
+        const MAX_W = () => Math.floor(grid.offsetWidth * 0.55);
+
+        const savedW = localStorage.getItem('rightPanelW');
+        if (savedW && grid.classList.contains('with-panel')) {
+            grid.style.gridTemplateColumns = `1fr 6px ${savedW}px`;
+        }
+
+        let startX, startW;
+
+        resizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            startX = e.clientX;
+            // Get current panel width from grid
+            const cols = getComputedStyle(grid).gridTemplateColumns.split(' ');
+            startW = parseFloat(cols[cols.length - 1]);
+            resizer.classList.add('dragging');
+            document.body.style.cursor = 'ew-resize';
+            document.body.style.userSelect = 'none';
+
+            function onMove(ev) {
+                if (!grid.classList.contains('with-panel')) return;
+                const delta = startX - ev.clientX; // drag left = wider panel
+                const newW = Math.max(MIN_W, Math.min(MAX_W(), startW + delta));
+                grid.style.gridTemplateColumns = `1fr 6px ${newW}px`;
+                if (typeof editor !== 'undefined' && editor && editor.layout) editor.layout();
+            }
+
+            function onUp() {
+                resizer.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                const cols = getComputedStyle(grid).gridTemplateColumns.split(' ');
+                localStorage.setItem('rightPanelW', parseFloat(cols[cols.length - 1]));
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                if (typeof editor !== 'undefined' && editor && editor.layout) editor.layout();
+            }
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+
+        resizer.addEventListener('dblclick', () => {
+            grid.style.gridTemplateColumns = `1fr 6px minmax(260px, 30%)`;
+            localStorage.removeItem('rightPanelW');
+            if (typeof editor !== 'undefined' && editor && editor.layout) editor.layout();
+        });
+    })();
+
+    // ===== BOTTOM PANEL DRAG RESIZE (stable mouse + touch flow) =====
+    (function() {
+        const resizer = document.getElementById('bottomResizer');
+        const panel = document.getElementById('bottomSection');
+        const tabBar = panel ? panel.querySelector('.tab-bar') : null;
+        if (!resizer || !panel) return;
+
+        const DEFAULT_H = 220;
+        const MIN_H = 80;
+        const MAX_H = () => Math.floor(window.innerHeight * 0.85);
+
+        const saved = parseInt(localStorage.getItem('bottomPanelH') || '', 10);
+        if (!Number.isNaN(saved)) {
+            panel.style.height = Math.max(MIN_H, Math.min(MAX_H(), saved)) + 'px';
+        }
+
+        let isDragging = false;
+        let startY = 0;
+        let startH = 0;
+
+        function getClientY(event) {
+            if (typeof event.clientY === 'number') return event.clientY;
+            if (event.touches && event.touches[0]) return event.touches[0].clientY;
+            if (event.changedTouches && event.changedTouches[0]) return event.changedTouches[0].clientY;
+            return 0;
+        }
+
+        function applyHeight(nextY) {
+            const delta = startY - nextY;
+            const newH = Math.max(MIN_H, Math.min(MAX_H(), startH + delta));
+            panel.style.height = newH + 'px';
+            if (typeof editor !== 'undefined' && editor && editor.layout) editor.layout();
+        }
+
+        function stopDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            resizer.classList.remove('dragging');
+            document.body.classList.remove('resizing-active');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            localStorage.setItem('bottomPanelH', String(panel.offsetHeight));
+
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.removeEventListener('touchmove', onTouchMove);
+            document.removeEventListener('touchend', onTouchEnd);
+            document.removeEventListener('touchcancel', onTouchEnd);
+        }
+
+        function startDrag(event) {
+            event.preventDefault();
+            isDragging = true;
+            startY = getClientY(event);
+            startH = panel.offsetHeight;
+
+            resizer.classList.add('dragging');
+            document.body.classList.add('resizing-active');
+            document.body.style.cursor = 'ns-resize';
+            document.body.style.userSelect = 'none';
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            document.addEventListener('touchmove', onTouchMove, { passive: false });
+            document.addEventListener('touchend', onTouchEnd);
+            document.addEventListener('touchcancel', onTouchEnd);
+        }
+
+        function onMouseMove(event) {
+            if (!isDragging) return;
+            applyHeight(event.clientY);
+        }
+
+        function onMouseUp() {
+            stopDrag();
+        }
+
+        function onTouchMove(event) {
+            if (!isDragging) return;
+            event.preventDefault();
+            applyHeight(getClientY(event));
+        }
+
+        function onTouchEnd() {
+            stopDrag();
+        }
+
+        resizer.addEventListener('mousedown', startDrag);
+        resizer.addEventListener('touchstart', startDrag, { passive: false });
+
+        if (tabBar) {
+            tabBar.addEventListener('mousedown', (event) => {
+                if (event.button !== 0) return;
+                if (event.target && event.target.closest('.tab-btn')) return;
+                const rect = tabBar.getBoundingClientRect();
+                const offsetY = event.clientY - rect.top;
+                if (offsetY <= 10) {
+                    startDrag(event);
+                }
+            });
+        }
+
+        resizer.addEventListener('dblclick', () => {
+            panel.style.height = DEFAULT_H + 'px';
+            localStorage.setItem('bottomPanelH', String(DEFAULT_H));
+            if (typeof editor !== 'undefined' && editor && editor.layout) editor.layout();
+        });
+    })();
 
     const filenameInput = document.getElementById("filename");
     const languageSelect = document.getElementById("language");
@@ -826,6 +1352,7 @@
     const practiceNowText = document.getElementById("practiceNowText");
     const progressOutput = document.getElementById("progressOutput");
     const problemsOutput = document.getElementById("problemsOutput");
+    const complexityHotspots = document.getElementById("complexityHotspots");
 
     const confCircle = document.getElementById("confCircle");
     const confValue = document.getElementById("confValue");
@@ -840,6 +1367,7 @@
     let latestOriginalCode = "";
     let latestSnapshotId = null;
     let latestConceptSignals = {};
+    let liveAstDebounceTimer = null;
 
 
     function showDiagnosticsView() {
@@ -1098,6 +1626,69 @@
         progressOutput.textContent = lines.join("\n");
     }
 
+    function renderComplexityHotspots(hotspots = []) {
+        if (!complexityHotspots) return;
+
+        if (!Array.isArray(hotspots) || hotspots.length === 0) {
+            complexityHotspots.innerHTML = '<div style="color:var(--text-tertiary);font-size:13px;text-align:center;padding:20px;">No major hotspots detected yet.</div>';
+            return;
+        }
+
+        complexityHotspots.innerHTML = hotspots.slice(0, 8).map((spot, idx) => {
+            const status = String(spot.status || "low").toLowerCase();
+            const color = status === "high"
+                ? "var(--accent-red)"
+                : status === "medium"
+                    ? "#f59e0b"
+                    : "var(--accent-green)";
+
+            return `
+                <div style="border:1px solid var(--border-subtle);border-left:3px solid ${color};border-radius:var(--radius-sm);padding:8px 10px;background:rgba(255,255,255,0.02);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                        <div style="font-size:12px;font-weight:600;color:var(--text-primary);">${idx + 1}. ${spot.name || spot.type || "Code block"}</div>
+                        <div style="font-size:10px;color:${color};font-weight:700;text-transform:uppercase;">${status}</div>
+                    </div>
+                    <div style="margin-top:4px;font-size:11px;color:var(--text-tertiary);">line ${spot.line || "?"} • complexity ${spot.complexity ?? "?"}</div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    async function parseAstLivePreview() {
+        if (!editor) return;
+        const code = editor.getValue();
+        const language = languageSelect.value;
+        const filename = filenameInput.value.trim() || "untitled";
+
+        if (!code.trim() || code.length > 12000) {
+            return;
+        }
+
+        try {
+            const response = await fetch("{% url 'ast_tree_local' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+                body: JSON.stringify({
+                    language,
+                    filename,
+                    code,
+                    max_depth: 4,
+                    max_children: 28,
+                    live_preview: true,
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) return;
+            if (data.concept_signals) {
+                latestConceptSignals = { ...latestConceptSignals, ...data.concept_signals };
+            }
+            if (Array.isArray(data.hotspots)) {
+                renderComplexityHotspots(data.hotspots);
+            }
+        } catch (_) {
+        }
+    }
+
     function renderToolStatus(statusPayload) {
         if (!statusPayload || !statusPayload.status) { problemsOutput.textContent = "No tool status available."; return; }
         const status = statusPayload.status;
@@ -1125,6 +1716,18 @@
         }
     }
 
+    async function parseResponseJsonSafe(response) {
+        const raw = await response.text();
+        try {
+            return JSON.parse(raw);
+        } catch (_) {
+            return {
+                ok: false,
+                error: `Non-JSON response (${response.status}): ${raw.slice(0, 180)}`,
+            };
+        }
+    }
+
     async function logLearnerAction(actionType, metadata = {}) {
         try {
             await fetch("{% url 'learner_action_local' %}", {
@@ -1147,6 +1750,31 @@
             if (response.ok && data.ok) renderProgress(data);
         } catch (error) {
             progressOutput.textContent = `Progress fetch failed: ${String(error.message || error)}`;
+        }
+    }
+
+    async function loadMemoryContext() {
+        try {
+            const res = await fetch("{% url 'memory_context_api' %}");
+            const data = await res.json();
+            if (data.ok) {
+                const content = document.getElementById('memoryContent');
+                if (!content) return;
+                if (data.memory_summary) {
+                    content.innerHTML = `
+                        <p style="margin-bottom:8px; line-height:1.4;">${data.memory_summary}</p>
+                        ${data.weak_concepts.length ? `
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+                                ${data.weak_concepts.map(c => `<span style="background:rgba(239,68,68,0.15); color:var(--accent-red); padding:3px 8px; border-radius:10px; font-size:10px; font-weight:600;">⚠️ ${c[0]}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    `;
+                } else {
+                    content.textContent = "Keep solving problems to build your conceptual profile.";
+                }
+            }
+        } catch (e) {
+            console.error("Memory load failed", e);
         }
     }
 
@@ -1201,7 +1829,7 @@
                     headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
                     body: JSON.stringify({ language, code }),
                 });
-                const data = await response.json();
+                const data = await parseResponseJsonSafe(response);
                 if (!response.ok || !data.ok) { setStatus(`Format failed: ${data.error || "Unknown error"}`); return; }
                 setFormattedOutput(data.formatted_code || code, code);
                 activateTab("formatted");
@@ -1246,10 +1874,13 @@
             renderAstTree(astView.ast);
             showAstVisualView();
             renderD3AstTree(data.ast);
+            renderComplexityHotspots(data.hotspots || []);
+            updateConceptPanel(data.concept_signals || {});
             latestSnapshotId = data.snapshot_id || null;
             renderProgress(data.progress || null);
             setStatus(`AST parsed (${data.language})`);
             await logLearnerAction("ast_parse", { language: data.language, snapshot_id: latestSnapshotId });
+            loadMemoryContext();
             refreshSidebarCredits();
         } catch (error) { setAstOutput(String(error)); clearAstTree(); setStatus("AST parse failed"); }
     }
@@ -1319,6 +1950,7 @@
             activateTab("ast");
             setAstOutput(renderAstHumanReadable(astView));
             renderAstTree(astView.ast);
+            renderComplexityHotspots(astData.hotspots || []);
             updateConceptPanel(astSignals);
             latestSnapshotId = astData.snapshot_id || latestSnapshotId;
             renderProgress(astData.progress || null);
@@ -1339,6 +1971,7 @@
             latestSnapshotId = aiData.snapshot_id || latestSnapshotId;
             renderProgress(aiData.progress || null);
             setStatus("Full analysis complete ⚡");
+            loadMemoryContext();
             refreshSidebarCredits();
         } catch (error) {
             setStatus(`Full analysis failed: ${String(error.message || error)}`);
@@ -1469,6 +2102,15 @@
             renderLineHighlight: "all",
         });
 
+        editor.onDidChangeModelContent(() => {
+            if (liveAstDebounceTimer) {
+                clearTimeout(liveAstDebounceTimer);
+            }
+            liveAstDebounceTimer = setTimeout(() => {
+                parseAstLivePreview();
+            }, 900);
+        });
+
         languageSelect.addEventListener("change", () => {
             syncFilenameFromLanguage();
             monaco.editor.setModelLanguage(editor.getModel(), languageSelect.value);
@@ -1554,7 +2196,9 @@
                 localStorage.setItem('diagPanelHidden', 'false');
             }
             // Let Monaco recalculate size
-            setTimeout(() => editor.layout(), 100);
+            setTimeout(() => {
+                if (typeof editor !== 'undefined' && editor && editor.layout) editor.layout();
+            }, 100);
         });
 
         // ===== MERMAID FLOWCHART =====
@@ -1596,10 +2240,13 @@
             try {
                 const res = await fetch("{% url 'ast_flowchart_api' %}", {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
                     body: JSON.stringify({ code, language: lang, concept_signals: latestConceptSignals || {} }),
                 });
-                const data = await res.json();
+                const data = await parseResponseJsonSafe(res);
                 if (!data.ok) {
                     loading.style.display = 'none';
                     placeholder.style.display = '';
@@ -1723,6 +2370,224 @@
         });
 
         loadNotes();
+
+        // ===== RUBBER DUCK MODE =====
+        let duckHistory = [];
+
+        const duckMessages = document.getElementById('duckMessages');
+        const duckInput   = document.getElementById('duckInput');
+        const duckSendBtn = document.getElementById('duckSendBtn');
+        const duckResetBtn = document.getElementById('duckResetBtn');
+        const duckTyping  = document.getElementById('duckTyping');
+
+        function duckScroll() {
+            duckMessages.scrollTop = duckMessages.scrollHeight;
+        }
+
+        function duckAppendBubble(role, text) {
+            const div = document.createElement('div');
+            const isGap = role === 'duck' && text.trim().endsWith('?');
+            div.className = `duck-bubble ${role}${isGap ? ' gap' : ''}`;
+            div.innerHTML = `<span>${text.replace(/\n/g, '<br>')}</span>`;
+            duckMessages.appendChild(div);
+            duckScroll();
+        }
+
+        async function duckSend() {
+            const msg = duckInput.value.trim();
+            if (!msg) return;
+            const code = editor ? editor.getValue() : '';
+            if (!code.trim()) { setStatus('Load some code first before using Rubber Duck mode.'); return; }
+
+            duckInput.value = '';
+            duckInput.style.height = 'auto';
+            duckAppendBubble('user', msg);
+
+            duckHistory.push({ role: 'user', content: msg });
+
+            duckTyping.style.display = 'flex';
+            duckScroll();
+            duckSendBtn.disabled = true;
+
+            try {
+                const res = await fetch("{% url 'rubber_duck_api' %}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({
+                        code,
+                        language: languageSelect.value,
+                        history: duckHistory.slice(0, -1), // don't double-send last msg
+                        message: msg,
+                    }),
+                });
+                const data = await res.json();
+                duckTyping.style.display = 'none';
+                if (data.ok) {
+                    duckHistory.push({ role: 'assistant', content: data.reply });
+                    duckAppendBubble('duck', data.reply);
+                    setStatus('Rubber Duck responded');
+                } else {
+                    duckAppendBubble('duck', `⚠️ ${data.error || 'Something went wrong.'}`);
+                    setStatus('Rubber Duck error');
+                }
+            } catch (e) {
+                duckTyping.style.display = 'none';
+                duckAppendBubble('duck', '⚠️ Network error. Check your connection.');
+                setStatus('Rubber Duck network error');
+            } finally {
+                duckSendBtn.disabled = false;
+                duckInput.focus();
+            }
+        }
+
+        duckSendBtn.addEventListener('click', duckSend);
+
+        duckInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                duckSend();
+            }
+        });
+
+        duckResetBtn.addEventListener('click', () => {
+            duckHistory = [];
+            duckMessages.innerHTML = `
+                <div class="duck-bubble duck">
+                    <span>Quack! 🦆 Fresh start. Tell me about your code again — what is it supposed to do?</span>
+                </div>`;
+            setStatus('Rubber Duck session reset');
+        });
+
+        // ===== CODE MORPHING OPTIMIZER =====
+        let diffEditor = null;
+        let morphedCode = "";
+
+        async function runMorph() {
+            const code = editor.getValue();
+            if (!code.trim()) { setStatus('Paste some code to optimize.'); return; }
+            
+            setStatus('Optimizing code via AI...');
+            const morphBtn = document.getElementById('morphBtn');
+            morphBtn.disabled = true;
+            morphBtn.textContent = '⚡ Optimizing...';
+
+            try {
+                const res = await fetch("{% url 'live_morph_api' %}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({
+                        code,
+                        language: languageSelect.value,
+                        concept_signals: latestConceptSignals
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    morphedCode = data.morphed_code;
+                    await renderMorphResult(code, data);
+                    if (data.concept_signals) {
+                        latestConceptSignals = { ...latestConceptSignals, ...data.concept_signals };
+                    }
+                    if (Array.isArray(data.detected_patterns) && data.detected_patterns.length) {
+                        const list = document.getElementById('morphChangesList');
+                        const patternBadges = `
+                            <div class="morph-card" style="padding:8px;border-left:3px solid var(--accent-purple,#9b7bd4);">
+                                <div style="font-size:10px;font-weight:700;color:var(--accent-purple,#9b7bd4);margin-bottom:4px;">Detected Patterns</div>
+                                <div style="display:flex;flex-wrap:wrap;gap:4px;">${data.detected_patterns.map(p => `<span style="font-size:10px;padding:3px 6px;border-radius:10px;background:rgba(155,123,212,0.16);color:var(--text-primary);">${p}</span>`).join('')}</div>
+                            </div>
+                        `;
+                        list.insertAdjacentHTML('beforeend', patternBadges);
+                    }
+                    loadMemoryContext();
+                    setStatus('Code optimized successfully');
+                } else {
+                    alert(data.error || 'Optimization failed');
+                    setStatus('Morph error');
+                }
+            } catch (e) {
+                console.error(e);
+                setStatus('Morph network error');
+            } finally {
+                morphBtn.disabled = false;
+                morphBtn.textContent = '⚡ Optimize Code (4 cr)';
+            }
+        }
+
+        function ensureMorphDiffEditor() {
+            const container = document.getElementById('morphDiffContainer');
+            if (!diffEditor) {
+                container.innerHTML = '';
+                diffEditor = monaco.editor.createDiffEditor(container, {
+                    theme: themeSelect.value,
+                    automaticLayout: true,
+                    readOnly: true,
+                    renderSideBySide: true,
+                    originalEditable: false,
+                    useInlineViewWhenSpaceIsLimited: false,
+                    diffAlgorithm: 'advanced',
+                    renderIndicators: true,
+                });
+            }
+            return diffEditor;
+        }
+
+        async function animateMorphTransition(originalCode, targetCode, language) {
+            const editorInstance = ensureMorphDiffEditor();
+
+            const existing = editorInstance.getModel();
+            if (existing?.original) existing.original.dispose();
+            if (existing?.modified) existing.modified.dispose();
+
+            const originalModel = monaco.editor.createModel(originalCode, language);
+            const modifiedModel = monaco.editor.createModel(originalCode, language);
+            editorInstance.setModel({ original: originalModel, modified: modifiedModel });
+
+            const totalChars = Math.max(targetCode.length, 1);
+            const stepChars = Math.max(50, Math.floor(totalChars / 24));
+
+            let cursor = 0;
+            await new Promise((resolve) => {
+                function step() {
+                    cursor = Math.min(totalChars, cursor + stepChars);
+                    const nextValue = targetCode.slice(0, cursor) + originalCode.slice(Math.min(cursor, originalCode.length));
+                    modifiedModel.setValue(nextValue);
+                    if (cursor >= totalChars) {
+                        modifiedModel.setValue(targetCode);
+                        resolve();
+                        return;
+                    }
+                    requestAnimationFrame(step);
+                }
+                requestAnimationFrame(step);
+            });
+        }
+
+        async function renderMorphResult(original, data) {
+            await animateMorphTransition(original, data.morphed_code, languageSelect.value);
+
+            document.getElementById('morphStats').style.display = 'flex';
+            document.getElementById('morphCBefore').textContent = data.complexity_before;
+            document.getElementById('morphCAfter').textContent = data.complexity_after;
+
+            const list = document.getElementById('morphChangesList');
+            list.innerHTML = data.changes.map(c => `
+                <div class="morph-card" style="padding:8px;">
+                    <div style="font-size:10px; font-weight:700; color:var(--accent-green); margin-bottom:2px;">${c.label}</div>
+                    <div style="font-size:11px; color:var(--text-secondary);">${c.detail}</div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('morphBtn').addEventListener('click', runMorph);
+        document.getElementById('applyMorphBtn').addEventListener('click', () => {
+            if (morphedCode) {
+                editor.setValue(morphedCode);
+                setStatus('Optimized code applied to editor');
+            }
+        });
+
+        // Load memory when panel is available or analyzed
+        loadMemoryContext();
 
     });
 </script>

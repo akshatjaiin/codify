@@ -223,6 +223,8 @@ def _run_process(command, cwd=None, stdin_text="", timeout=5):
         command,
         input=stdin_text,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         cwd=cwd,
         timeout=timeout,
@@ -239,6 +241,8 @@ def _format_with_command(command, code, timeout=5):
         command,
         input=code,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         timeout=timeout,
     )
@@ -485,6 +489,14 @@ def _collect_concept_signals(node):
         fix_now = "Replace one inner loop with a dictionary/set lookup where possible."
         learn_now = "Study time complexity contrast between O(n²) nested loops and O(n) hash lookup patterns."
         practice_now = "Solve one duplicate-detection problem using a set instead of double loop."
+    elif conditional_count >= 3 and max_loop_nesting >= 1:
+        issue = "High conditionals inside loops detected (Control Flow Overload)."
+        concept_gap = "Mixing iteration and complex business logic violates Separation of Concerns."
+        suggestion = "Extract the inner loop logic into a separate filtering or processing function."
+        concept_tag = "control-flow-overload"
+        fix_now = "Move the 'if/else' block from inside your loop into a standalone 'process_item()' function."
+        learn_now = "Review declarative processing modes like map/filter vs imperative nested loops."
+        practice_now = "Refactor a loop with multiple if-statements into a pipeline of small list comprehensions."
     elif conditional_count >= 6:
         issue = "High conditional branching detected."
         concept_gap = "Decision logic decomposition may be unclear."
@@ -535,8 +547,9 @@ def _collect_concept_signals(node):
     }
 
 
-def _save_snapshot(filename, language, code, concept_signals):
+def _save_snapshot(filename, language, code, concept_signals, profile=None):
     return DiagnosticSnapshot.objects.create(
+        profile=profile,
         filename=filename or "untitled",
         language=language,
         code=code,
@@ -663,6 +676,7 @@ def ast_tree_local(request):
     language = str(payload.get("language", "")).strip().lower()
     code = str(payload.get("code", ""))
     filename = str(payload.get("filename", "untitled")).strip() or "untitled"
+    live_preview = bool(payload.get("live_preview", False))
     max_depth = min(max(int(payload.get("max_depth", 6)), 1), 12)
     max_children = min(max(int(payload.get("max_children", 40)), 1), 200)
 
@@ -704,13 +718,15 @@ def ast_tree_local(request):
                 sexp = ""
 
         concept_signals = _collect_concept_signals(root)
-        snapshot = _save_snapshot(filename, language, code, concept_signals)
-        progress = _build_progress_payload(language=language, limit=20)
+        snapshot = None
+        progress = None
 
-        # Update knowledge tracking
-        profile = _get_or_create_profile(request)
-        _update_knowledge(profile, concept_signals.get("concept_tag"), concept_signals.get("confidence_score", 0))
-        _grant_credits(profile, 2, "AST analysis completed")
+        if not live_preview:
+            profile = _get_or_create_profile(request)
+            snapshot = _save_snapshot(filename, language, code, concept_signals, profile=profile)
+            progress = _build_progress_payload(language=language, limit=20)
+            _update_knowledge(profile, concept_signals.get("concept_tag"), concept_signals.get("confidence_score", 0))
+            _grant_credits(profile, 2, "AST analysis completed")
 
         return JsonResponse(
             {
@@ -722,8 +738,9 @@ def ast_tree_local(request):
                 "hotspots": hotspots,
                 "ast": ast_data,
                 "concept_signals": concept_signals,
-                "snapshot_id": snapshot.id,
+                "snapshot_id": snapshot.id if snapshot else None,
                 "progress": progress,
+                "live_preview": live_preview,
             }
         )
     except Exception as error:
@@ -1066,6 +1083,14 @@ def format_code_local(request):
             },
             status=400,
         )
+    except UnicodeEncodeError as error:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": f"Unicode encode issue while formatting: {error}",
+            },
+            status=400,
+        )
     except subprocess.TimeoutExpired:
         return JsonResponse(
             {
@@ -1143,13 +1168,29 @@ def ai_diagnose_local(request):
     if profile.credits < 5:
         return JsonResponse({"ok": False, "error": f"Not enough credits. You have {profile.credits}, need 5."}, status=400)
 
+    # Calculate Pedagogical Failed Attempts for Progressive Hinting
+    from datetime import timedelta
+    from django.utils import timezone
+    recent_time_window = timezone.now() - timedelta(hours=2)
+    failed_attempts = DiagnosticSnapshot.objects.filter(
+        profile=profile,
+        filename=filename,
+        created_at__gte=recent_time_window,
+        confidence_score__lt=65
+    ).count()
+
     _use_credits(profile, 5, "AI diagnosis")
+
+    # Build Memory Context for the AI (Conceptual Memory Engine)
+    memory_context = _build_memory_context(profile)
 
     ai_result = diagnose_with_inception(
         code=code,
         language=language,
         filename=filename,
         concept_signals=concept_signals if isinstance(concept_signals, dict) else {},
+        failed_attempts=failed_attempts,
+        memory_context=memory_context,
     )
 
     if not ai_result.get("ok"):
@@ -1292,6 +1333,118 @@ def knowledge_api(request):
     return JsonResponse({"ok": True, "knowledge": entries})
 
 
+def knowledge_graph_api(request):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    profile = _get_or_create_profile(request)
+
+    knowledge_entries = list(
+        KnowledgeEntry.objects.filter(user=profile).order_by("-practice_count", "-last_practiced")[:30]
+    )
+    snapshots = list(
+        DiagnosticSnapshot.objects.filter(profile=profile).order_by("-created_at")[:80].values(
+            "concept_tag",
+            "filename",
+            "language",
+            "confidence_score",
+        )
+    )
+
+    nodes = [
+        {
+            "id": "learner",
+            "label": profile.display_name or "Learner",
+            "type": "user",
+            "size": 18,
+            "group": "user",
+            "meta": {
+                "credits": profile.credits,
+                "submissions": len(snapshots),
+            },
+        }
+    ]
+    links = []
+
+    concept_map = {}
+    weak_concepts = []
+
+    for entry in knowledge_entries:
+        concept_id = f"concept::{entry.concept_tag}"
+        concept_map[entry.concept_tag] = concept_id
+
+        if entry.proficiency_level in ("beginner", "developing"):
+            weak_concepts.append(entry.concept_tag)
+
+        nodes.append(
+            {
+                "id": concept_id,
+                "label": entry.concept_tag,
+                "type": "concept",
+                "group": entry.proficiency_level,
+                "size": max(8, min(20, 8 + entry.practice_count)),
+                "meta": {
+                    "proficiency": entry.proficiency_level,
+                    "practice_count": entry.practice_count,
+                },
+            }
+        )
+
+        links.append(
+            {
+                "source": "learner",
+                "target": concept_id,
+                "kind": "learned",
+                "weight": max(1, entry.practice_count),
+            }
+        )
+
+    from collections import Counter
+
+    co_occurrence = Counter()
+    seen_tags = []
+    for shot in snapshots:
+        tag = (shot.get("concept_tag") or "").strip()
+        if not tag:
+            continue
+        seen_tags.append(tag)
+
+    for i in range(len(seen_tags) - 1):
+        a = seen_tags[i]
+        b = seen_tags[i + 1]
+        if a and b and a != b:
+            key = tuple(sorted((a, b)))
+            co_occurrence[key] += 1
+
+    for (left_tag, right_tag), count in co_occurrence.items():
+        left_id = concept_map.get(left_tag)
+        right_id = concept_map.get(right_tag)
+        if left_id and right_id:
+            links.append(
+                {
+                    "source": left_id,
+                    "target": right_id,
+                    "kind": "related",
+                    "weight": min(6, count),
+                }
+            )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "graph": {
+                "nodes": nodes,
+                "links": links,
+            },
+            "summary": {
+                "concept_count": len(concept_map),
+                "weak_concepts": weak_concepts[:5],
+                "resource_count": 0,
+            },
+        }
+    )
+
+
 def credits_balance_api(request):
     if request.method != "GET":
         return HttpResponseNotAllowed(["GET"])
@@ -1361,7 +1514,8 @@ def youtube_recommend_api(request):
                         "url": f"https://www.youtube.com/watch?v={video_id}",
                         "channel": snippet.get("channelTitle", ""),
                         "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
-                        "concept": q
+                        "concept": q,
+                        "source_concept": q,
                     })
             except Exception:
                 pass
@@ -1374,11 +1528,76 @@ def youtube_recommend_api(request):
                 "url": f"https://www.youtube.com/results?search_query={q.replace(' ', '+')}",
                 "channel": "YouTube Search",
                 "thumbnail": "",
-                "concept": q
+                "concept": q,
+                "source_concept": q,
             })
 
     return JsonResponse({"ok": True, "recommendations": recommendations, "weak_concepts": weak_concepts})
 
+
+@csrf_exempt
+def video_watched_api(request):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON payload."}, status=400)
+
+    profile = _get_or_create_profile(request)
+
+    title = str(payload.get("title", "")).strip()
+    url = str(payload.get("url", "")).strip()
+    concept = str(payload.get("concept", "")).strip()
+    source_concept = str(payload.get("source_concept", "")).strip()
+
+    if not title:
+        return JsonResponse({"ok": False, "error": "Video title is required."}, status=400)
+
+    concept_tag = (source_concept or concept or "general-structure")[:120]
+
+    entry, created = KnowledgeEntry.objects.get_or_create(
+        user=profile,
+        concept_tag=concept_tag,
+        defaults={"proficiency_level": "developing", "practice_count": 1},
+    )
+
+    if not created:
+        entry.practice_count += 1
+        if entry.proficiency_level == "beginner":
+            entry.proficiency_level = "developing"
+        elif entry.proficiency_level == "developing" and entry.practice_count >= 8:
+            entry.proficiency_level = "strong"
+        entry.last_practiced = timezone.now()
+        entry.save()
+
+    LearnerAction.objects.create(
+        action_type="video_watched",
+        filename="",
+        language="",
+        metadata={
+            "title": title,
+            "url": url,
+            "concept": concept,
+            "source_concept": concept_tag,
+        },
+    )
+
+    _grant_credits(profile, 1, "Watched learning resource")
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "knowledge": {
+                "concept_tag": entry.concept_tag,
+                "practice_count": entry.practice_count,
+                "proficiency_level": entry.proficiency_level,
+            },
+            "credits_remaining": profile.credits,
+        }
+    )
+
 @csrf_exempt
 def ast_flowchart_api(request):
     """Generate a Mermaid flowchart from code using AI."""
@@ -1743,3 +1962,314 @@ def notes_api(request):
             return JsonResponse({"ok": False, "error": "Note not found."}, status=404)
         return JsonResponse({"ok": True, "deleted": note_id})
     return HttpResponseNotAllowed(["GET", "POST", "DELETE"])
+
+
+@csrf_exempt
+def rubber_duck_api(request):
+    """
+    Rubber Duck Mode endpoint.
+    Accepts code, conversation history, and the latest student message.
+    Returns a Socratic probing question from the AI.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON payload."}, status=400)
+
+    code = str(payload.get("code", "")).strip()
+    language = str(payload.get("language", "python")).strip().lower()
+    user_message = str(payload.get("message", "")).strip()
+    history = payload.get("history", [])
+
+    if not code:
+        return JsonResponse({"ok": False, "error": "No code provided."}, status=400)
+    if not user_message:
+        return JsonResponse({"ok": False, "error": "No message provided."}, status=400)
+    if not isinstance(history, list):
+        history = []
+
+    profile = _get_or_create_profile(request)
+    memory_context = _build_memory_context(profile)
+    failed_attempts = max(0, len(history) // 2)
+
+    code_context = {
+        "language": language,
+        "concept_signals": {},
+        "hotspots": [],
+        "parse_error": False,
+        "code_excerpt": code[:2200],
+        "symbol_hints": [],
+    }
+
+    try:
+        import re
+        symbols = re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_]{2,}\b", code)
+        filtered = [
+            token for token in symbols
+            if token not in {"for", "while", "if", "else", "return", "class", "def", "function", "var", "let", "const"}
+        ]
+        dedup = []
+        for token in filtered:
+            if token not in dedup:
+                dedup.append(token)
+            if len(dedup) >= 10:
+                break
+        code_context["symbol_hints"] = dedup
+    except Exception:
+        pass
+
+    ts_language = _tree_sitter_language_name(language)
+    if ts_language and _tree_sitter_backend_available():
+        try:
+            parser = _get_tree_sitter_parser(ts_language)
+            code_bytes = code.encode("utf-8")
+            tree = parser.parse(code_bytes)
+            root = tree.root_node
+            code_context["parse_error"] = bool(root.has_error)
+            code_context["concept_signals"] = _collect_concept_signals(root)
+            code_context["hotspots"] = _analyze_ast_complexity(root, code_bytes)[:5]
+        except Exception:
+            pass
+
+    from .ai_client import rubber_duck_chat
+    result = rubber_duck_chat(
+        code=code,
+        language=language,
+        history=history,
+        user_message=user_message,
+        memory_context=memory_context,
+        code_context=code_context,
+        failed_attempts=failed_attempts,
+    )
+
+    if not result.get("ok"):
+        return JsonResponse(result, status=400)
+
+    LearnerAction.objects.create(
+        action_type="rubber_duck_turn",
+        filename="",
+        language=language,
+        metadata={
+            "history_turns": len(history),
+            "message_len": len(user_message),
+            "used_memory_context": bool(memory_context),
+            "has_ast_context": bool(code_context.get("concept_signals")),
+        },
+    )
+
+    return JsonResponse({"ok": True, "reply": result["reply"]})
+
+
+def _build_memory_context(profile) -> str:
+    """
+    Conceptual Memory Engine: summarise the student's recent learning history
+    into a compact text paragraph the AI can reference during diagnosis.
+    """
+    try:
+        snapshots = (
+            DiagnosticSnapshot.objects
+            .filter(profile=profile)
+            .order_by("-created_at")[:20]
+            .values("concept_tag", "confidence_score", "filename", "created_at")
+        )
+        if not snapshots:
+            return ""
+
+        from collections import Counter
+        concept_count = Counter()
+        low_conf_concepts = Counter()  # concepts with confidence < 60
+        files_seen = set()
+
+        for s in snapshots:
+            tag = s.get("concept_tag") or "General"
+            conf = s.get("confidence_score") or 60
+            concept_count[tag] += 1
+            if conf < 60:
+                low_conf_concepts[tag] += 1
+            files_seen.add(s.get("filename", "unknown"))
+
+        lines = []
+        total = sum(concept_count.values())
+        lines.append(f"Student has made {total} code submissions across {len(files_seen)} file(s).")
+
+        if concept_count:
+            top = concept_count.most_common(3)
+            top_str = ", ".join(f"{tag} ({cnt}x)" for tag, cnt in top)
+            lines.append(f"Most frequently analysed concepts: {top_str}.")
+
+        if low_conf_concepts:
+            weak = low_conf_concepts.most_common(3)
+            weak_str = ", ".join(f"{tag} ({cnt}x)" for tag, cnt in weak)
+            lines.append(f"RECURRING WEAK AREAS (confidence < 60%): {weak_str}. *** Prioritise these in diagnosis. ***")
+
+        return " ".join(lines)
+    except Exception:
+        return ""
+
+
+def _detect_inefficiency_patterns(code, language):
+    patterns = []
+    concept_signals = {}
+
+    ts_language = _tree_sitter_language_name(language)
+    if ts_language and _tree_sitter_backend_available() and code.strip():
+        try:
+            parser = _get_tree_sitter_parser(ts_language)
+            tree = parser.parse(code.encode("utf-8"))
+            concept_signals = _collect_concept_signals(tree.root_node)
+        except Exception:
+            concept_signals = {}
+
+    source = code.lower()
+    max_loop_nesting = int(concept_signals.get("max_loop_nesting", 0) or 0)
+    conditional_count = int(concept_signals.get("conditional_count", 0) or 0)
+    function_like_count = int(concept_signals.get("function_like_count", 0) or 0)
+    max_depth = int(concept_signals.get("max_tree_depth", 0) or 0)
+
+    if max_loop_nesting >= 2:
+        patterns.append("nested_loops")
+    if conditional_count >= 6:
+        patterns.append("heavy_branching")
+    if max_depth >= 18:
+        patterns.append("deep_structure")
+    if function_like_count == 0 and len(code) > 160:
+        patterns.append("missing_function_decomposition")
+    if "append(" in source and " for " in source and " in " in source:
+        patterns.append("manual_accumulation_pattern")
+    if "== true" in source or "== false" in source:
+        patterns.append("boolean_comparison_smell")
+
+    if not patterns:
+        patterns.append("no_major_structural_inefficiency_detected")
+
+    return {
+        "patterns": patterns,
+        "concept_signals": concept_signals,
+    }
+
+
+@csrf_exempt
+def live_morph_api(request):
+    """
+    Live Code Morphing Optimizer endpoint.
+    Returns an AI-optimized version of the code + a precise changelog.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON payload."}, status=400)
+
+    code = str(payload.get("code", "")).strip()
+    language = str(payload.get("language", "python")).strip().lower()
+    concept_signals = payload.get("concept_signals", {})
+
+    if not code:
+        return JsonResponse({"ok": False, "error": "Code is empty."}, status=400)
+    if len(code) > 8000:
+        return JsonResponse({"ok": False, "error": "Code too long for morphing (max 8000 chars)."}, status=400)
+
+    profile = _get_or_create_profile(request)
+    if profile.credits < 4:
+        return JsonResponse(
+            {"ok": False, "error": f"Not enough credits. You have {profile.credits}, need 4."},
+            status=400,
+        )
+
+    _use_credits(profile, 4, "Code Morphing")
+
+    detected = _detect_inefficiency_patterns(code, language)
+    memory_context = _build_memory_context(profile)
+    merged_concept_signals = {}
+    if isinstance(concept_signals, dict):
+        merged_concept_signals.update(concept_signals)
+    if isinstance(detected.get("concept_signals"), dict):
+        merged_concept_signals.update(detected.get("concept_signals", {}))
+
+    from .ai_client import morph_code
+    result = morph_code(
+        code=code,
+        language=language,
+        concept_signals=merged_concept_signals,
+        inefficiency_patterns=detected.get("patterns", []),
+        memory_context=memory_context,
+    )
+
+    if not result.get("ok"):
+        _grant_credits(profile, 4, "Code Morphing refund (AI error)")
+        return JsonResponse(result, status=400)
+
+    LearnerAction.objects.create(
+        action_type="live_morph",
+        filename="",
+        language=language,
+        metadata={
+            "patterns": detected.get("patterns", []),
+            "used_memory_context": bool(memory_context),
+        },
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "morphed_code": result["morphed_code"],
+        "changes": result["changes"],
+        "complexity_before": result["complexity_before"],
+        "complexity_after": result["complexity_after"],
+        "detected_patterns": detected.get("patterns", []),
+        "concept_signals": merged_concept_signals,
+        "credits_remaining": profile.credits,
+    })
+
+
+def memory_context_api(request):
+    """
+    Conceptual Memory Engine: returns the student's learning history summary
+    and recent weak concepts for display in the UI.
+    """
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+
+    profile = _get_or_create_profile(request)
+
+    try:
+        from collections import Counter
+        snapshots = list(
+            DiagnosticSnapshot.objects
+            .filter(profile=profile)
+            .order_by("-created_at")[:30]
+            .values("concept_tag", "confidence_score", "filename", "created_at", "language")
+        )
+
+        concept_count = Counter()
+        low_conf = Counter()
+        trend = []
+
+        for s in snapshots:
+            tag = s.get("concept_tag") or "General"
+            conf = s.get("confidence_score") or 60
+            concept_count[tag] += 1
+            if conf < 60:
+                low_conf[tag] += 1
+            trend.append({
+                "tag": tag,
+                "confidence": conf,
+                "filename": s.get("filename", "unknown"),
+                "language": s.get("language", "?"),
+                "at": s["created_at"].isoformat() if s.get("created_at") else "",
+            })
+
+        return JsonResponse({
+            "ok": True,
+            "total_submissions": len(snapshots),
+            "top_concepts": concept_count.most_common(5),
+            "weak_concepts": low_conf.most_common(5),
+            "recent_trend": trend[:10],
+            "memory_summary": _build_memory_context(profile),
+        })
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)

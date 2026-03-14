@@ -44,10 +44,25 @@
         flex-shrink: 0;
     }
 
-    .activity-dot.strong { background: var(--accent-green); box-shadow: 0 0 4px rgba(59,170,138,0.2); }
-    .activity-dot.moderate { background: var(--accent-blue); box-shadow: 0 0 4px rgba(91,143,217,0.2); }
-    .activity-dot.developing { background: var(--accent-amber); box-shadow: 0 0 4px rgba(212,160,65,0.2); }
-    .activity-dot.weak { background: var(--accent-red); box-shadow: 0 0 4px rgba(212,92,92,0.2); }
+    .activity-dot.strong {
+        background: var(--accent-green);
+        box-shadow: 0 0 4px rgba(59, 170, 138, 0.2);
+    }
+
+    .activity-dot.moderate {
+        background: var(--accent-blue);
+        box-shadow: 0 0 4px rgba(91, 143, 217, 0.2);
+    }
+
+    .activity-dot.developing {
+        background: var(--accent-amber);
+        box-shadow: 0 0 4px rgba(212, 160, 65, 0.2);
+    }
+
+    .activity-dot.weak {
+        background: var(--accent-red);
+        box-shadow: 0 0 4px rgba(212, 92, 92, 0.2);
+    }
 
     .activity-text {
         flex: 1;
@@ -76,10 +91,25 @@
         white-space: nowrap;
     }
 
-    .badge-strong { background: rgba(16,185,129,0.12); color: var(--accent-green); }
-    .badge-moderate { background: rgba(59,130,246,0.12); color: var(--accent-blue); }
-    .badge-developing { background: rgba(245,158,11,0.12); color: var(--accent-amber); }
-    .badge-weak { background: rgba(239,68,68,0.12); color: var(--accent-red); }
+    .badge-strong {
+        background: rgba(16, 185, 129, 0.12);
+        color: var(--accent-green);
+    }
+
+    .badge-moderate {
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--accent-blue);
+    }
+
+    .badge-developing {
+        background: rgba(245, 158, 11, 0.12);
+        color: var(--accent-amber);
+    }
+
+    .badge-weak {
+        background: rgba(239, 68, 68, 0.12);
+        color: var(--accent-red);
+    }
 
     .concept-bar-container {
         margin-bottom: 14px;
@@ -103,7 +133,7 @@
 
     .concept-bar-track {
         height: 8px;
-        background: rgba(255,255,255,0.05);
+        background: rgba(255, 255, 255, 0.05);
         border-radius: 4px;
         overflow: hidden;
     }
@@ -115,11 +145,25 @@
         min-width: 4px;
     }
 
-    .bar-blue { background: var(--accent-blue); }
-    .bar-purple { background: var(--accent-purple); }
-    .bar-green { background: var(--accent-green); }
-    .bar-amber { background: var(--accent-amber); }
-    .bar-pink { background: var(--accent-pink); }
+    .bar-blue {
+        background: var(--accent-blue);
+    }
+
+    .bar-purple {
+        background: var(--accent-purple);
+    }
+
+    .bar-green {
+        background: var(--accent-green);
+    }
+
+    .bar-amber {
+        background: var(--accent-amber);
+    }
+
+    .bar-pink {
+        background: var(--accent-pink);
+    }
 
     .quick-actions {
         display: flex;
@@ -156,7 +200,10 @@
     </div>
     <div class="quick-actions">
         <a href="{% url 'editor_page' %}" class="btn btn-primary">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+            </svg>
             Open Editor
         </a>
     </div>
@@ -189,12 +236,17 @@
     <div class="dashboard-grid">
         <div class="glass-card activity-card animate-in">
             <h3>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
                 Recent Activity
             </h3>
             <div id="activityList">
                 <div class="empty-state">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <polyline points="16 18 22 12 16 6" />
+                        <polyline points="8 6 2 12 8 18" />
+                    </svg>
                     <p>No analyses yet. Open the editor to analyze your first file.</p>
                 </div>
             </div>
@@ -202,7 +254,11 @@
 
         <div class="glass-card activity-card animate-in">
             <h3>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <line x1="18" y1="20" x2="18" y2="10" />
+                    <line x1="12" y1="20" x2="12" y2="4" />
+                    <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
                 Concept Distribution
             </h3>
             <div id="conceptBars">

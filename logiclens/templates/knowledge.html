@@ -241,6 +241,7 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 20px;
+        align-items: start;
     }
 
     @media (max-width: 1200px) {
@@ -310,6 +311,48 @@
         font-size: 11px;
         color: var(--text-tertiary);
     }
+
+    .graph-shell {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        background: radial-gradient(circle at 20% 20%, rgba(91, 143, 217, 0.10), rgba(11, 15, 26, 0.9));
+    }
+
+    .graph-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: 12px;
+        color: var(--text-tertiary);
+    }
+
+    .graph-legend {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        display: inline-block;
+        margin-right: 4px;
+    }
+
+    #knowledgeGraph3d {
+        width: 100%;
+        height: 360px;
+        min-height: 360px;
+    }
 </style>
 {% endblock %}
 
@@ -336,23 +379,41 @@
             </div>
         </div>
 
-        <!-- YouTube Recommendations -->
-        <div class="glass-card section-card animate-in">
-            <h3>
-                <span style="color:#ef4444;">▶</span>
-                Recommended Videos
-            </h3>
-            <div class="yt-search-bar">
-                <input type="text" id="ytSearchInput" placeholder="Search for programming tutorials...">
-                <button id="ytSearchBtn" type="button">Search</button>
-            </div>
-            <div class="yt-grid" id="ytGrid">
-                <div class="empty-knowledge">
-                    <p>Video suggestions will appear based on areas you're developing.</p>
+        <div class="two-col">
+            <!-- YouTube Recommendations -->
+            <div class="glass-card section-card animate-in">
+                <h3>
+                    <span style="color:#ef4444;">▶</span>
+                    Recommended Videos
+                </h3>
+                <div class="yt-search-bar">
+                    <input type="text" id="ytSearchInput" placeholder="Search for programming tutorials...">
+                    <button id="ytSearchBtn" type="button">Search</button>
+                </div>
+                <div class="yt-grid" id="ytGrid">
+                    <div class="empty-knowledge">
+                        <p>Video suggestions will appear based on areas you're developing.</p>
+                    </div>
+                </div>
+                <div class="yt-search-results">
+                    <div class="yt-grid" id="ytSearchResults"></div>
                 </div>
             </div>
-            <div class="yt-search-results">
-                <div class="yt-grid" id="ytSearchResults"></div>
+
+            <div class="glass-card section-card animate-in">
+                <h3>🧠🌌 Knowledge Graph (3D)</h3>
+                <div class="graph-shell">
+                    <div class="graph-toolbar">
+                        <div id="graphSummaryText">Building your concept universe...</div>
+                        <div class="graph-legend">
+                            <span><span class="legend-dot" style="background:#5b8fd9;"></span>You</span>
+                            <span><span class="legend-dot" style="background:#3baa8a;"></span>Strong</span>
+                            <span><span class="legend-dot" style="background:#d4a041;"></span>Developing</span>
+                            <span><span class="legend-dot" style="background:#d45c5c;"></span>Beginner</span>
+                        </div>
+                    </div>
+                    <div id="knowledgeGraph3d"></div>
+                </div>
             </div>
         </div>
 
@@ -393,7 +454,31 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/3d-force-graph"></script>
 <script>
+    let knowledgeGraph = null;
+    let knowledgeGraphEl = null;
+    let knowledgeGraphResizeObserver = null;
+
+    function fitKnowledgeGraph() {
+        if (!knowledgeGraph || !knowledgeGraphEl) return;
+        const width = knowledgeGraphEl.clientWidth;
+        const height = knowledgeGraphEl.clientHeight;
+        if (width > 0 && height > 0) {
+            knowledgeGraph.width(width).height(height);
+            knowledgeGraph.zoomToFit(500, 40);
+        }
+    }
+
+    function ensureKnowledgeGraphResizeObserver() {
+        if (!knowledgeGraphEl || knowledgeGraphResizeObserver) return;
+        knowledgeGraphResizeObserver = new ResizeObserver(() => {
+            fitKnowledgeGraph();
+        });
+        knowledgeGraphResizeObserver.observe(knowledgeGraphEl);
+        window.addEventListener('resize', fitKnowledgeGraph);
+    }
+
     function relativeTime(iso) {
         const diff = (Date.now() - new Date(iso).getTime()) / 1000;
         if (diff < 60) return 'just now';
@@ -438,18 +523,54 @@
             const ytGrid = document.getElementById('ytGrid');
             const videos = ytData.recommendations || [];
             if (videos.length > 0) {
-                ytGrid.innerHTML = videos.map(v => `
-                    <a href="${v.url}" target="_blank" rel="noopener" class="yt-card">
+                ytGrid.innerHTML = videos.map((v, idx) => `
+                    <div class="yt-card" style="align-items:stretch;">
                         <div class="yt-icon">▶</div>
                         <div class="yt-info">
                             <div class="yt-title">${v.title}</div>
-                            <div class="yt-meta">
+                            <div class="yt-meta" style="margin-bottom:8px;">
                                 <span>${v.channel}</span>
                                 <span class="yt-concept-badge">${v.concept}</span>
                             </div>
+                            <div style="display:flex;gap:8px;">
+                                <a href="${v.url}" target="_blank" rel="noopener" class="toolbar-btn" style="padding:4px 10px;font-size:11px;">Watch</a>
+                                <button class="toolbar-btn mark-watched-btn" data-idx="${idx}" style="padding:4px 10px;font-size:11px;">I watched</button>
+                            </div>
                         </div>
-                    </a>
+                    </div>
                 `).join('');
+
+                ytGrid.querySelectorAll('.mark-watched-btn').forEach((btn) => {
+                    btn.addEventListener('click', async () => {
+                        const idx = Number(btn.getAttribute('data-idx'));
+                        const video = videos[idx];
+                        if (!video) return;
+                        btn.disabled = true;
+                        try {
+                            const res = await fetch("{% url 'video_watched_api' %}", {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    title: video.title,
+                                    url: video.url,
+                                    concept: video.concept,
+                                    source_concept: video.source_concept || video.concept,
+                                }),
+                            });
+                            const data = await res.json();
+                            if (data.ok) {
+                                btn.textContent = '✅ Added';
+                                btn.style.opacity = '0.75';
+                                loadKnowledge();
+                                loadKnowledgeGraph();
+                            } else {
+                                btn.disabled = false;
+                            }
+                        } catch (e) {
+                            btn.disabled = false;
+                        }
+                    });
+                });
             }
 
             // Credits
@@ -467,6 +588,8 @@
                     `).join('');
                 }
             }
+
+            fitKnowledgeGraph();
         } catch (e) {
             console.error('Knowledge load failed', e);
         }
@@ -536,5 +659,85 @@
     }
 
     loadKnowledgeNotes();
+
+    async function loadKnowledgeGraph() {
+        const graphEl = document.getElementById('knowledgeGraph3d');
+        knowledgeGraphEl = graphEl;
+        const summaryEl = document.getElementById('graphSummaryText');
+        if (!graphEl || typeof ForceGraph3D === 'undefined') {
+            return;
+        }
+
+        summaryEl.textContent = 'Mapping concept relationships...';
+
+        try {
+            const res = await fetch("{% url 'knowledge_graph_api' %}");
+            const data = await res.json();
+            if (!data.ok || !data.graph) {
+                summaryEl.textContent = data.error || 'Could not build knowledge graph.';
+                return;
+            }
+
+            const graphData = data.graph;
+            const colorByGroup = {
+                user: '#5b8fd9',
+                strong: '#3baa8a',
+                developing: '#d4a041',
+                beginner: '#d45c5c',
+            };
+
+            if (!knowledgeGraph) {
+                knowledgeGraph = ForceGraph3D()(graphEl)
+                    .backgroundColor('#070b13')
+                    .nodeLabel((node) => {
+                        const meta = node.meta || {};
+                        if (node.type === 'concept') {
+                            return `${node.label}\n${meta.proficiency || ''} • ${meta.practice_count || 0} practices`;
+                        }
+                        return node.label;
+                    })
+                    .nodeColor((node) => colorByGroup[node.group] || '#94a3b8')
+                    .nodeVal((node) => Number(node.size || 6))
+                    .linkColor((link) => {
+                        if (link.kind === 'related') return 'rgba(155,123,212,0.45)';
+                        return 'rgba(148,163,184,0.45)';
+                    })
+                    .linkWidth((link) => Math.max(1, Number(link.weight || 1) * 0.5))
+                    .linkOpacity(0.7)
+                    .cooldownTicks(120)
+                    .onEngineStop(() => {
+                        fitKnowledgeGraph();
+                    })
+                    .onNodeClick((node) => {
+                        const distance = 90;
+                        const distRatio = 1 + distance / Math.hypot(node.x || 1, node.y || 1, node.z || 1);
+                        knowledgeGraph.cameraPosition(
+                            {
+                                x: (node.x || 0) * distRatio,
+                                y: (node.y || 0) * distRatio,
+                                z: (node.z || 0) * distRatio,
+                            },
+                            node,
+                            900
+                        );
+                    });
+
+                knowledgeGraph.d3Force('charge').strength(-120);
+                knowledgeGraph.d3Force('link').distance(78);
+                ensureKnowledgeGraphResizeObserver();
+            }
+
+            knowledgeGraph.graphData(graphData);
+            setTimeout(() => fitKnowledgeGraph(), 250);
+
+            const summary = data.summary || {};
+            summaryEl.textContent = `Concepts: ${summary.concept_count || 0} • Weak focus: ${(summary.weak_concepts || []).join(', ') || 'None'} • Connections: ${(graphData.links || []).length}`;
+        } catch (e) {
+            summaryEl.textContent = 'Knowledge graph unavailable right now.';
+            console.error('Knowledge graph load failed', e);
+        }
+    }
+
+    loadKnowledgeGraph();
 </script>
 {% endblock %}
