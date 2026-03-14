@@ -2033,7 +2033,7 @@ def rubber_duck_api(request):
     except json.JSONDecodeError:
         return JsonResponse({"ok": False, "error": "Invalid JSON payload."}, status=400)
 
-    code = str(payload.get("code", "")).strip()
+    code = str(payload.get("code", ""))
     filename = str(payload.get("filename", "untitled")).strip() or "untitled"
     language = str(payload.get("language", "python")).strip().lower()
     user_message = str(payload.get("message", "")).strip()
@@ -2041,7 +2041,7 @@ def rubber_duck_api(request):
     editor_context_payload = payload.get("editor_context", {})
     concept_signals_payload = payload.get("concept_signals", {})
 
-    if not code:
+    if not code.strip():
         return JsonResponse({"ok": False, "error": "No code provided."}, status=400)
     if not user_message:
         return JsonResponse({"ok": False, "error": "No message provided."}, status=400)

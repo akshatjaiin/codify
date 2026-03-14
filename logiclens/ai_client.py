@@ -398,6 +398,7 @@ def rubber_duck_chat(
     focus_line = code_context.get("editor_focus_line")
     focus_line_text = str(code_context.get("editor_focus_line_text", "")).strip()
     focus_neighborhood = code_context.get("editor_focus_neighborhood") or []
+    code_lines = code.splitlines()
     user_message_lower = (user_message or "").strip().lower()
     explain_mode = bool(re.search(r"\b(explain|samjha|samjhao|meaning|matlab)\b", user_message_lower))
     requested_line = None
@@ -407,6 +408,19 @@ def rubber_duck_chat(
         line_match = re.search(r"\bline\s*(\d+)\b|\b(\d+)\s*line\b", user_message_lower)
         if line_match:
             requested_line = int(line_match.group(1) or line_match.group(2))
+
+    target_line = focus_line if isinstance(focus_line, int) else None
+    if requested_line is not None:
+        target_line = requested_line
+
+    if code_lines and target_line is not None:
+        target_line = max(1, min(int(target_line), len(code_lines)))
+
+    target_line_text = ""
+    if code_lines and target_line is not None:
+        target_line_text = str(code_lines[target_line - 1]).strip()
+    elif focus_line_text:
+        target_line_text = focus_line_text
 
     system_prompt = """You are a helpful Rubber Duck Debugger for code intuition.
 
@@ -442,6 +456,8 @@ Rules:
             "focus_line": focus_line,
             "focus_line_text": focus_line_text or "None",
             "focus_neighborhood": focus_neighborhood,
+            "target_line": target_line,
+            "target_line_text": target_line_text or "None",
         },
         "memory_context": memory_context or "No prior memory context.",
         "code_context": code_context,
@@ -593,16 +609,16 @@ Rules:
             "and which assumption might be causing the mismatch you are seeing?"
         )
 
-    if random_guessy_reply and focus_line_text:
+    if random_guessy_reply and target_line_text:
         reply = (
-            f"On line {focus_line}, this part `{focus_line_text[:100]}` runs at this step of your flow. "
+            f"On line {target_line}, this part `{target_line_text[:100]}` runs at this step of your flow. "
             "In your own words, what input/state does it consume, and what output/state should it produce next?"
         )
 
-    if explain_mode and focus_line_text:
-        line_ref = requested_line or focus_line
+    if explain_mode and target_line_text:
+        line_ref = target_line
         reply = (
-            f"Line {line_ref} is doing: `{focus_line_text[:120]}`. "
+            f"Line {line_ref} is doing: `{target_line_text[:120]}`. "
             "It matters because it changes/sets the state used by the next step. "
             "Quick check: what value do you expect immediately after this line executes?"
         )
